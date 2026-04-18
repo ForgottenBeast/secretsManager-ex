@@ -1,0 +1,57 @@
+# Elixir build artifacts
+.nix-hex
+.nix-mix
+/_build/
+/deps/
+/*.ez
+
+# Mix artifacts
+.fetch
+erl_crash.dump
+*.beam
+.elixir_ls/
+
+# Mix lock file (commit this in real projects)
+# mix.lock
+
+# Hex
+.hex/
+
+# Documentation
+/doc/
+.ex_doc/
+
+# Nix-specific
+.nix-mix/
+.nix-hex/
+result
+result-*
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test coverage
+cover/
+*.coverdata
+
+# Temporary files
+*.tmp
+.elixir-tools/
+
+# Phoenix specific
+/priv/static/
+/assets/node_modules/
+npm-debug.log
+
+# Database
+*.db
+*.db-shm
+*.db-wal
