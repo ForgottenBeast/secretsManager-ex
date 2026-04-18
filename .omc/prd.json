@@ -1,0 +1,50 @@
+{
+  "task": "Phase 3: Registry GenServer",
+  "plan": "docs/plans/rotating_secrets.md",
+  "stories": [
+    {
+      "id": "US-001",
+      "title": "Implement RotatingSecrets.Registry GenServer",
+      "priority": 1,
+      "passes": true,
+      "acceptanceCriteria": [
+        "File lib/rotating_secrets/registry.ex exists",
+        "init/1 calls Process.flag(:sensitive, true) first",
+        "init/1 calls source.init(source_opts) and returns {:ok, state, {:continue, :initial_load}}",
+        "init/1 returns {:stop, {:source_init_failed, reason}} if source.init fails",
+        "handle_continue(:initial_load) calls source.load/1; on success transitions lifecycle to :valid and schedules refresh",
+        "handle_continue(:initial_load) on permanent error (:enoent, :eacces, {:invalid_option, _}) returns {:stop, {:permanent_load_failure, reason}, state}",
+        "handle_continue(:initial_load) on transient error returns {:stop, {:transient_load_failure, reason}, state}",
+        "handle_call(:current) returns {:ok, secret} when lifecycle is :valid, :refreshing, or :expiring",
+        "handle_call(:current) returns {:error, :loading} when lifecycle is :loading",
+        "handle_call({:subscribe, pid}) monitors pid and returns {:ok, sub_ref}",
+        "handle_call({:unsubscribe, sub_ref}) demonitors and returns :ok",
+        "handle_info(:do_refresh) calls source.load; on success fans out {:rotating_secret_rotated, sub_ref, name, version} to subscribers",
+        "handle_info(:do_refresh) on error schedules exponential backoff retry (min 1s, max 60s)",
+        "handle_info({:DOWN, monitor_ref, :process, _, _}) removes dead subscriber",
+        "handle_info(msg) delegates to source.handle_change_notification/2 when exported; {:changed, _} triggers refresh; :ignored is a noop",
+        "terminate/2 calls source.terminate/1 when exported",
+        "Refresh scheduling: meta[:ttl_seconds] present -> delay = trunc(ttl_seconds * 1000 * 2/3); absent -> fallback_interval_ms (default 60s)",
+        "child_spec/1 returns serializable spec with id {__MODULE__, name}, restart: :transient",
+        "mix compile in rotating_secrets/ passes with no warnings"
+      ]
+    },
+    {
+      "id": "US-002",
+      "title": "Unit tests for Registry GenServer",
+      "priority": 2,
+      "passes": true,
+      "acceptanceCriteria": [
+        "File test/support/mocks.ex exists with Mox.defmock(RotatingSecrets.MockSource, for: RotatingSecrets.Source)",
+        "test_helper.exs defines RotatingSecrets.MockSource mock",
+        "File test/rotating_secrets/registry_test.exs exists",
+        "Test: Registry starts and loads secret successfully via MockSource",
+        "Test: handle_call(:current) returns {:ok, secret} after successful load",
+        "Test: Registry stops with :permanent_load_failure on :enoent from source",
+        "Test: subscriber receives {:rotating_secret_rotated, sub_ref, name, version} on refresh",
+        "Test: subscriber is removed from state after DOWN message",
+        "mix test in rotating_secrets/ passes with no failures"
+      ]
+    }
+  ]
+}
