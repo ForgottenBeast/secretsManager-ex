@@ -23,7 +23,7 @@ defmodule RotatingSecrets.Registry do
 
   use GenServer
 
-  alias RotatingSecrets.Secret
+  alias RotatingSecrets.{Secret, Telemetry}
 
   @default_fallback_ms 60_000
   @default_min_backoff_ms 1_000
@@ -131,7 +131,7 @@ defmodule RotatingSecrets.Registry do
         sub_refs: Map.put(state.sub_refs, sub_ref, monitor_ref)
     }
 
-    :telemetry.execute([:rotating_secrets, :subscriber_added], %{}, %{name: state.name})
+    Telemetry.emit_subscriber_added(state.name)
 
     {:reply, {:ok, sub_ref}, new_state}
   end
@@ -150,11 +150,7 @@ defmodule RotatingSecrets.Registry do
             sub_refs: Map.delete(state.sub_refs, sub_ref)
         }
 
-        :telemetry.execute(
-          [:rotating_secrets, :subscriber_removed],
-          %{},
-          %{name: state.name, reason: :unsubscribed}
-        )
+        Telemetry.emit_subscriber_removed(state.name, :unsubscribed)
 
         {:reply, :ok, new_state}
     end
@@ -183,11 +179,7 @@ defmodule RotatingSecrets.Registry do
             sub_refs: Map.delete(state.sub_refs, sub_ref)
         }
 
-        :telemetry.execute(
-          [:rotating_secrets, :subscriber_removed],
-          %{},
-          %{name: state.name, reason: reason}
-        )
+        Telemetry.emit_subscriber_removed(state.name, reason)
 
         {:noreply, new_state}
     end
@@ -238,19 +230,11 @@ defmodule RotatingSecrets.Registry do
   end
 
   defp do_load(state) do
-    :telemetry.execute(
-      [:rotating_secrets, :source, :load, :start],
-      %{},
-      %{name: state.name, source: state.source}
-    )
+    Telemetry.emit_load_start(state.name, state.source)
 
     case state.source.load(state.source_state) do
       {:ok, material, meta, new_source_state} ->
-        :telemetry.execute(
-          [:rotating_secrets, :source, :load, :stop],
-          %{},
-          %{name: state.name, source: state.source, result: :ok}
-        )
+        Telemetry.emit_load_stop(state.name, state.source, :ok)
 
         secret = struct!(Secret, name: state.name, value: material, meta: meta)
         version = Map.get(meta, :version)
@@ -274,11 +258,7 @@ defmodule RotatingSecrets.Registry do
         {:ok, new_state}
 
       {:error, reason, new_source_state} ->
-        :telemetry.execute(
-          [:rotating_secrets, :source, :load, :stop],
-          %{},
-          %{name: state.name, source: state.source, result: :error, reason: reason}
-        )
+        Telemetry.emit_load_stop(state.name, state.source, {:error, reason})
 
         {classify_error(reason), reason, %{state | source_state: new_source_state}}
     end
@@ -286,13 +266,9 @@ defmodule RotatingSecrets.Registry do
 
   defp emit_load_telemetry(name, prev_lifecycle, version) do
     if prev_lifecycle == :valid do
-      :telemetry.execute([:rotating_secrets, :rotation], %{version: version}, %{name: name})
+      Telemetry.emit_rotation(name, version)
     else
-      :telemetry.execute(
-        [:rotating_secrets, :state_change],
-        %{},
-        %{name: name, from: prev_lifecycle, to: :valid}
-      )
+      Telemetry.emit_state_change(name, prev_lifecycle, :valid)
     end
   end
 

@@ -1,48 +1,34 @@
 {
-  "task": "Phase 3: Registry GenServer",
+  "task": "Phase 4: Telemetry Module",
   "plan": "docs/plans/rotating_secrets.md",
   "stories": [
     {
       "id": "US-001",
-      "title": "Implement RotatingSecrets.Registry GenServer",
+      "title": "Implement RotatingSecrets.Telemetry module",
       "priority": 1,
       "passes": true,
       "acceptanceCriteria": [
-        "File lib/rotating_secrets/registry.ex exists",
-        "init/1 calls Process.flag(:sensitive, true) first",
-        "init/1 calls source.init(source_opts) and returns {:ok, state, {:continue, :initial_load}}",
-        "init/1 returns {:stop, {:source_init_failed, reason}} if source.init fails",
-        "handle_continue(:initial_load) calls source.load/1; on success transitions lifecycle to :valid and schedules refresh",
-        "handle_continue(:initial_load) on permanent error (:enoent, :eacces, {:invalid_option, _}) returns {:stop, {:permanent_load_failure, reason}, state}",
-        "handle_continue(:initial_load) on transient error returns {:stop, {:transient_load_failure, reason}, state}",
-        "handle_call(:current) returns {:ok, secret} when lifecycle is :valid, :refreshing, or :expiring",
-        "handle_call(:current) returns {:error, :loading} when lifecycle is :loading",
-        "handle_call({:subscribe, pid}) monitors pid and returns {:ok, sub_ref}",
-        "handle_call({:unsubscribe, sub_ref}) demonitors and returns :ok",
-        "handle_info(:do_refresh) calls source.load; on success fans out {:rotating_secret_rotated, sub_ref, name, version} to subscribers",
-        "handle_info(:do_refresh) on error schedules exponential backoff retry (min 1s, max 60s)",
-        "handle_info({:DOWN, monitor_ref, :process, _, _}) removes dead subscriber",
-        "handle_info(msg) delegates to source.handle_change_notification/2 when exported; {:changed, _} triggers refresh; :ignored is a noop",
-        "terminate/2 calls source.terminate/1 when exported",
-        "Refresh scheduling: meta[:ttl_seconds] present -> delay = trunc(ttl_seconds * 1000 * 2/3); absent -> fallback_interval_ms (default 60s)",
-        "child_spec/1 returns serializable spec with id {__MODULE__, name}, restart: :transient",
+        "File lib/rotating_secrets/telemetry.ex exists",
+        "Module defines @load_start, @load_stop, @load_exception, @rotation, @state_change, @subscriber_added, @subscriber_removed, @degraded, @dev_source_in_use module attributes with the correct [:rotating_secrets, ...] event name lists",
+        "Module exports attach_default_handlers/0 that attaches a telemetry handler for each of the 9 events",
+        "Private emit_* helpers exist for each event and guard against secret values appearing in metadata maps",
+        "Registry.ex is updated to call the Telemetry emit_* helpers instead of raw :telemetry.execute/3",
         "mix compile in rotating_secrets/ passes with no warnings"
       ]
     },
     {
       "id": "US-002",
-      "title": "Unit tests for Registry GenServer",
+      "title": "Unit tests for Telemetry module",
       "priority": 2,
       "passes": true,
       "acceptanceCriteria": [
-        "File test/support/mocks.ex exists with Mox.defmock(RotatingSecrets.MockSource, for: RotatingSecrets.Source)",
-        "test_helper.exs defines RotatingSecrets.MockSource mock",
-        "File test/rotating_secrets/registry_test.exs exists",
-        "Test: Registry starts and loads secret successfully via MockSource",
-        "Test: handle_call(:current) returns {:ok, secret} after successful load",
-        "Test: Registry stops with :permanent_load_failure on :enoent from source",
-        "Test: subscriber receives {:rotating_secret_rotated, sub_ref, name, version} on refresh",
-        "Test: subscriber is removed from state after DOWN message",
+        "File test/rotating_secrets/telemetry_test.exs exists",
+        "Test: attach_default_handlers/0 attaches handlers and does not raise",
+        "Test: emit_load_start/2 fires [:rotating_secrets, :source, :load, :start] with name and source metadata but no secret material",
+        "Test: emit_rotation/2 fires [:rotating_secrets, :rotation] with version measurement and name metadata",
+        "Test: emit_state_change/3 fires [:rotating_secrets, :state_change] with from/to metadata",
+        "Test: emit_subscriber_added/1 fires [:rotating_secrets, :subscriber_added]",
+        "Test: emit_subscriber_removed/2 fires [:rotating_secrets, :subscriber_removed] with reason",
         "mix test in rotating_secrets/ passes with no failures"
       ]
     }
