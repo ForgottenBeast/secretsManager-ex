@@ -139,9 +139,6 @@
             elixir-ls # Language server for IDE support
             git
 
-            # Code quality
-            beamPackages.credo # Static code analysis
-
             # Database clients (optional, uncomment if needed)
             # postgresql
             # sqlite
