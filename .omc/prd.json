@@ -1,34 +1,33 @@
 {
-  "task": "Phase 4: Telemetry Module",
+  "task": "Phase 5: Supervisor",
   "plan": "docs/plans/rotating_secrets.md",
   "stories": [
     {
       "id": "US-001",
-      "title": "Implement RotatingSecrets.Telemetry module",
+      "title": "Implement RotatingSecrets.Supervisor",
       "priority": 1,
       "passes": true,
       "acceptanceCriteria": [
-        "File lib/rotating_secrets/telemetry.ex exists",
-        "Module defines @load_start, @load_stop, @load_exception, @rotation, @state_change, @subscriber_added, @subscriber_removed, @degraded, @dev_source_in_use module attributes with the correct [:rotating_secrets, ...] event name lists",
-        "Module exports attach_default_handlers/0 that attaches a telemetry handler for each of the 9 events",
-        "Private emit_* helpers exist for each event and guard against secret values appearing in metadata maps",
-        "Registry.ex is updated to call the Telemetry emit_* helpers instead of raw :telemetry.execute/3",
+        "File lib/rotating_secrets/supervisor.ex exists",
+        "Module uses Supervisor and starts two children: {Registry, keys: :unique, name: RotatingSecrets.ProcessRegistry} and {DynamicSupervisor, name: RotatingSecrets.DynamicSupervisor, max_restarts: 3, max_seconds: 30}",
+        "Supervisor strategy is :rest_for_one so that ProcessRegistry crash cascades to DynamicSupervisor restart",
+        "register/2 starts a Registry child via DynamicSupervisor.start_child; default server_name is {:via, Registry, {RotatingSecrets.ProcessRegistry, name}}",
+        "register/2 accepts :registry_via option to override server_name for Horde compatibility",
+        "deregister/1 looks up the pid in ProcessRegistry and calls DynamicSupervisor.terminate_child; returns {:error, :not_found} when name is absent",
         "mix compile in rotating_secrets/ passes with no warnings"
       ]
     },
     {
       "id": "US-002",
-      "title": "Unit tests for Telemetry module",
+      "title": "Unit tests for Supervisor",
       "priority": 2,
       "passes": true,
       "acceptanceCriteria": [
-        "File test/rotating_secrets/telemetry_test.exs exists",
-        "Test: attach_default_handlers/0 attaches handlers and does not raise",
-        "Test: emit_load_start/2 fires [:rotating_secrets, :source, :load, :start] with name and source metadata but no secret material",
-        "Test: emit_rotation/2 fires [:rotating_secrets, :rotation] with version measurement and name metadata",
-        "Test: emit_state_change/3 fires [:rotating_secrets, :state_change] with from/to metadata",
-        "Test: emit_subscriber_added/1 fires [:rotating_secrets, :subscriber_added]",
-        "Test: emit_subscriber_removed/2 fires [:rotating_secrets, :subscriber_removed] with reason",
+        "File test/rotating_secrets/supervisor_test.exs exists",
+        "Test: supervisor starts and both ProcessRegistry and DynamicSupervisor are alive",
+        "Test: register/2 starts a secret process and it is reachable via GenServer.call(:current)",
+        "Test: deregister/1 terminates the registered process",
+        "Test: deregister/1 returns {:error, :not_found} for an unknown name",
         "mix test in rotating_secrets/ passes with no failures"
       ]
     }
