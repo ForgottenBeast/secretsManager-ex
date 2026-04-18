@@ -1,0 +1,455 @@
+# PRD: `rotating_secrets` — Elixir Secret Lifecycle Library
+
+**Status:** Draft
+**License target:** Apache-2.0
+**Target audience:** Any Elixir project consuming secrets that may rotate (API keys, tokens, TLS material, dynamic credentials).
+
+---
+
+## 1. Problem Statement
+
+Applications consuming secrets need to handle rotation correctly. Current options each have fundamental flaws:
+
+1. **Load at startup into `Application` env.** Breaks on rotation; value lives in ETS forever; trivially leaks into crash reports and LiveDashboard.
+2. **Re-read from source on every use.** Latency on hot path; inconsistent views within a multi-step operation; duplicated refresh logic per call-site.
+3. **Bespoke per-secret GenServers.** Duplicated leak-prevention discipline, inconsistent telemetry, inconsistent retry/backoff semantics, non-reusable.
+
+No widely-adopted Elixir library provides a uniform abstraction for secret lifecycle management with consistent reads, rotation notification, TTL awareness, fail-soft refresh, and disciplined leak prevention.
+
+## 2. Conceptual Model
+
+The library is built around three shapes of access that compose:
+
+**Borrow (for reads).** Callers ask for the current value and use it within a scope. Rotation mid-scope does not affect the in-flight read; the next read sees the new value. This matches the typical case: "I need the API key for this HTTP call" / "I need the signing key for this one operation."
+
+**Watch (for push).** Long-lived consumers (connection pools, HTTP clients, anything that builds state from a secret) subscribe to rotation notifications and rebuild their state. Push-based because polling is wasteful and latency-sensitive for these consumers.
+
+**Lifecycle metadata.** Each secret carries metadata (version, TTL, issued-at) that consumers can inspect to make policy decisions ("is this material near expiry?" / "has rotation happened since I last checked?"). The value itself is always opaque.
+
+A **source** is the plug-point between the library and the outside world (file, env, KMS, Vault, etc.). Sources implement a small behaviour; the library handles everything else (caching, refresh scheduling, notification, leak prevention).
+
+## 3. Goals
+
+- Single `RotatingSecrets.Source` behaviour; all sources plug in uniformly.
+- Borrow semantics via a `current/1` API that returns an opaque wrapper; push semantics via `subscribe/1`.
+- TTL-aware refresh in the source-managing process, triggered at 2/3 of lifetime by default.
+- Fail-soft: refresh errors serve the last-known-good, emit telemetry, do not propagate to consumers.
+- Rigorous leak prevention: `Process.flag(:sensitive, true)`, opaque struct with safe `Inspect` / `String.Chars` / `Jason.Encoder` / `Phoenix.Param` implementations.
+- Backend-extensible: adding a new source means implementing one behaviour.
+- **Composition with Horde / distributed Erlang:** via-tuple configurable name registration so singleton-secret patterns work without the library depending on Horde.
+- Minimal dependency footprint in the core package: only `telemetry` (universal).
+- First-class testing story: a `Controllable` source for simulating rotation in tests, documented patterns for common test scenarios.
+
+## 4. Non-Goals
+
+- **Zeroization of BEAM memory.** Not meaningfully possible; the library accepts this and compensates with scope minimization, `:sensitive` flag, and opaque wrappers. Users needing true zeroization must delegate to a NIF or out-of-BEAM process.
+- **Writing / issuing secrets.** Consumer-side only. No Vault writes, no lease releases, no administrative operations.
+- **General configuration management.** This is not a replacement for `Config` / `runtime.exs`. It manages *secrets* — values with rotation semantics and leak-prevention requirements.
+- **Multi-secret atomic rotation.** Deferred. A secret "bundle" abstraction may land in a future version; v1 handles single logical secrets.
+- **Cluster-wide state synchronization.** The library does not replicate secret state across BEAM nodes. Each node independently converges on its authoritative source.
+- **Built-in HTTP / Vault client.** The core package has zero non-trivial dependencies. HTTP-based sources live in companion packages.
+
+## 5. Package Structure
+
+```
+rotating_secrets           (core)
+├── RotatingSecrets.Source         behaviour
+├── RotatingSecrets.Registry       GenServer (per-secret lifecycle)
+├── RotatingSecrets.Supervisor
+├── RotatingSecrets.Secret         opaque wrapper
+├── RotatingSecrets.Source.File
+├── RotatingSecrets.Source.Env
+├── RotatingSecrets.Source.Memory  constant, for static cases
+└── Telemetry events
+
+rotating_secrets_vault     (companion, separate package)
+└── RotatingSecrets.Source.Vault   direct Vault HTTP API
+
+rotating_secrets_testing   (companion, separate package)
+├── RotatingSecrets.Source.Controllable  manual rotation for tests
+└── ExUnit assertions and helpers
+```
+
+The core package has one mandatory dependency (`telemetry`) and one optional dependency (`file_system`, for inotify-based file watching). Everything else is in companions.
+
+## 6. Public API
+
+### 6.1 The opaque `Secret` struct
+
+```elixir
+defmodule RotatingSecrets.Secret do
+  @enforce_keys [:name, :value, :meta]
+  defstruct [:name, :value, :meta]
+  @opaque t :: %__MODULE__{name: atom(), value: binary(), meta: map()}
+
+  @spec expose(t()) :: binary()
+  def expose(%__MODULE__{value: v}), do: v
+
+  @spec meta(t()) :: map()
+  def meta(%__MODULE__{meta: m}), do: m
+
+  @spec name(t()) :: atom()
+  def name(%__MODULE__{name: n}), do: n
+
+  defimpl Inspect do
+    def inspect(%{name: n}, _), do: "#RotatingSecrets.Secret<#{n}:redacted>"
+  end
+
+  defimpl String.Chars do
+    def to_string(_), do: raise ArgumentError,
+      "cannot stringify a Secret; use RotatingSecrets.Secret.expose/1 explicitly"
+  end
+
+  defimpl Jason.Encoder do
+    def encode(_, _), do: raise Protocol.UndefinedError,
+      protocol: Jason.Encoder,
+      value: "a Secret; use RotatingSecrets.Secret.expose/1 explicitly"
+  end
+end
+```
+
+**Requirements:**
+- `Inspect`, `String.Chars`, `Jason.Encoder` MUST NOT expose the value.
+- Attempted JSON encoding MUST raise. Silent success would mask the leak of a field that was *meant* to serialize.
+- If `Phoenix` is available (detected at compile time via `Code.ensure_loaded?/1`), a `Phoenix.Param` impl MUST be generated that raises similarly.
+- `expose/1` is the only way to retrieve the value. Deliberately greppable: a code review can `grep expose` to audit every value-use site.
+- The struct is `@opaque` at the type level and is documented as constructible only by source implementations. Runtime enforcement is not possible in Elixir, but the type system discourages direct construction.
+
+### 6.2 Core read API
+
+```elixir
+@spec current(name :: atom()) :: {:ok, Secret.t()} | {:error, term()}
+@spec current!(name :: atom()) :: Secret.t()
+```
+
+Returns the currently-held value for `name`. Implementation is a synchronous `GenServer.call` to the Registry process for that name. Must be fast (no I/O on the hot path; the Registry serves from memory).
+
+### 6.3 Scoped borrow
+
+```elixir
+@spec with_secret(name :: atom(), (Secret.t() -> result)) :: {:ok, result} | {:error, term()}
+    when result: var
+```
+
+Executes `fun` with the current secret. Because Elixir data is immutable, this is semantically equivalent to `current/1` + passing to `fun`, but the API shape makes "this is a bounded usage scope" intent visible at call sites and matches cross-language conventions.
+
+### 6.4 Push subscription
+
+```elixir
+@spec subscribe(name :: atom()) :: {:ok, reference()} | {:error, term()}
+@spec unsubscribe(reference()) :: :ok
+```
+
+Subscribers receive messages of shape:
+
+```elixir
+{:rotating_secret_rotated, reference(), name :: atom(), version :: term()}
+```
+
+The message is deliberately **name-and-version-only, never the value**. Subscribers call `current/1` to fetch the new value. This keeps the value out of the BEAM mailbox where feasible (the value crosses processes only on explicit read, not on broadcast).
+
+Subscribers are monitored via `Process.monitor/1`; their subscription is auto-removed on `:DOWN`. This works across nodes transparently — a remote subscriber that becomes unreachable is cleaned up normally.
+
+### 6.5 Registration & supervision
+
+```elixir
+defmodule MyApp.Application do
+  def start(_, _) do
+    children = [
+      {RotatingSecrets.Supervisor, [
+        secrets: [
+          {:api_key, source: {RotatingSecrets.Source.File,
+                              path: "/run/secrets/api_key",
+                              refresh: :file_watch}},
+          {:db_creds, source: {RotatingSecrets.Source.File,
+                               path: "/run/secrets/db.env",
+                               refresh: {:interval, :timer.minutes(5)}}}
+        ]
+      ]}
+    ]
+    Supervisor.start_link(children, strategy: :one_for_one)
+  end
+end
+```
+
+Dynamic registration:
+
+```elixir
+RotatingSecrets.register(:another, source: {RotatingSecrets.Source.Env,
+                                            var: "ANOTHER_SECRET",
+                                            refresh: {:interval, :timer.seconds(30)}})
+```
+
+For Horde-registered Registries (singleton secrets in a cluster):
+
+```elixir
+{RotatingSecrets.Supervisor, [
+  registry_via: {Horde.Registry, MyApp.HordeRegistry},
+  secrets: [...]
+]}
+```
+
+The library does not depend on Horde; `registry_via` configures the via-tuple used when starting Registry processes. Users wire up Horde themselves.
+
+### 6.6 Source behaviour
+
+```elixir
+defmodule RotatingSecrets.Source do
+  @type state :: term()
+  @type material :: binary()
+  @type meta :: %{
+    optional(:issued_at) => DateTime.t(),
+    optional(:ttl_seconds) => pos_integer(),
+    optional(:version) => term(),
+    optional(atom()) => term()
+  }
+
+  @callback init(opts :: keyword()) :: {:ok, state} | {:error, term()}
+  @callback load(state) :: {:ok, material, meta, state} | {:error, term(), state}
+  @callback subscribe_changes(state) ::
+    {:ok, subscription_ref :: term(), state} | :not_supported
+  @callback handle_change_notification(msg :: term(), state) ::
+    {:changed, state} | :ignored | {:error, term()}
+  @callback terminate(state) :: :ok
+
+  @optional_callbacks [subscribe_changes: 1, handle_change_notification: 2, terminate: 1]
+end
+```
+
+Sources declare whether they support push notification. If `subscribe_changes/1` returns `:not_supported`, the Registry falls back to polling at the configured interval. Optional callbacks keep simple sources (e.g., `Memory`) tiny.
+
+## 7. Behavior Specification
+
+### 7.1 Refresh lifecycle
+
+```
+        init
+         │
+         ▼
+   ┌──Loading──┐
+   │           │
+   │ load()    │ error on initial load
+   ▼           ▼
+ Valid ◄── InitFailure (Registry does not start)
+   │
+   │ TTL * 2/3 elapsed OR push notification
+   ▼
+ Refreshing
+   │         │
+   │ ok      │ error
+   ▼         ▼
+ Valid    Expiring (serve stale, backoff retry, alert)
+   │         │
+   │         │ TTL elapsed, still no success
+   ▼         ▼
+ Valid    Expired (serve stale, loud telemetry, continue retry)
+```
+
+**Requirements:**
+- Initial load failure MUST return an error from `start_link/1` (or the `register/2` call). This is a deployment error and must be visible at boot.
+- Post-init refresh failures MUST NOT invalidate the current value. Registry continues to serve last-known-good.
+- Refresh retries use exponential backoff. Default initial 1s, cap 60s, factor 2.0. Configurable per-secret.
+- TTL-driven refresh fires at 2/3 of lifetime by default, configurable per-secret.
+- `Expiring` and `Expired` states emit distinct telemetry events.
+
+### 7.2 Fail-soft guarantees
+
+- A failed `load/1` never crashes the Registry.
+- A crashed source implementation (unexpected exception) is caught, logged without value, and treated as a refresh error.
+- If the source fails beyond a configurable threshold (default 3 consecutive failures), telemetry fires `:degraded`. Whether to escalate is the application's policy.
+- Registry supervisor strategy is `:permanent` with `:transient` restart — under normal operation it should never exit.
+
+### 7.3 Concurrency & consistency
+
+- Reads (`current/1`) are serialized through the Registry GenServer. Deliberate choice over ETS: one process holds the value, not N copies across tables.
+- Benchmark target: `current/1` sustains ≥50,000 reads/sec on a reference machine. If this becomes a production bottleneck, a `:persistent_term` fast-path is a candidate for v2.
+- Writes (rotations) are atomic from the reader's perspective: a reader sees either the old value or the new value, never a torn value.
+
+### 7.4 Process flags & leak prevention
+
+- Every Registry GenServer MUST call `Process.flag(:sensitive, true)` in `init/1`. This suppresses state from crash reports, `:sys.get_state`, and `:observer`.
+- The library MUST NOT log the secret value at any level (`debug`/`info`/`warn`/`error`). Tests verify this via log capture across all code paths.
+- The library MUST NOT include the secret value in telemetry metadata. Events carry name, version, and non-value metadata only.
+
+### 7.5 Telemetry events
+
+```
+[:rotating_secrets, :source, :load, :start]      %{name: atom()}
+[:rotating_secrets, :source, :load, :stop]       %{name, duration_ms}
+[:rotating_secrets, :source, :load, :exception]  %{name, kind, reason}
+[:rotating_secrets, :rotation]                   %{name, version_old, version_new}
+[:rotating_secrets, :state_change]               %{name, from, to}
+[:rotating_secrets, :subscriber_added]           %{name, count}
+[:rotating_secrets, :subscriber_removed]         %{name, count, reason}
+[:rotating_secrets, :degraded]                   %{name, consecutive_failures}
+```
+
+No event may carry the secret value. Tests enforce via event handler assertions.
+
+## 8. Built-in Sources
+
+### 8.1 `RotatingSecrets.Source.File`
+
+Reads from a file path. Two refresh modes:
+
+- `refresh: :file_watch` — uses `FileSystem` (optional dep) to watch via inotify/FSEvents/ReadDirectoryChanges. Emits reload on `modified` and `moved_to` events.
+- `refresh: {:interval, ms}` — polls file mtime, re-reads on change.
+
+**Requirements:**
+- File MUST be owner-readable only (mode 0600) or owner/group-readable (0640). Otherwise emits a warning (not an error — deployments vary and strict enforcement is a common footgun).
+- Default behavior treats file content as raw secret material; trailing whitespace is stripped (common agent template artifact).
+- Missing file on initial load = error. Missing file on refresh = serve stale, log, continue retrying.
+- MUST handle the atomic-rename pattern correctly (Vault Agent and similar tools write to a temp file then rename). File-watch re-opens on `moved_to`.
+- MUST handle platform differences: Linux inotify, macOS FSEvents, Windows ReadDirectoryChanges, BSD kqueue. File-watch tests run on Linux and macOS in CI; Windows is best-effort in v1.
+
+### 8.2 `RotatingSecrets.Source.Env`
+
+Reads from an environment variable. Refresh is `{:interval, ms}` only (no meaningful watch primitive for env changes). Emits a `:dev_source_in_use` warning on init — env sources are primarily for development and simple deployments, not production with rotation.
+
+### 8.3 `RotatingSecrets.Source.Memory`
+
+Holds a constant value. Useful for:
+- Truly static secrets that don't rotate (migration scenarios).
+- Test setup.
+- Composition: a higher-level source that derives material from other sources.
+
+Rotation is possible via an explicit `RotatingSecrets.Source.Memory.update/2` function; callers can trigger rotation programmatically.
+
+## 9. Clustering & Multi-Node Deployment
+
+### 9.1 Default: independent per-node Registries
+
+The default and recommended shape is **N independent Registry processes, one set per node**. Each node runs its own `Supervisor`, starts its own Registries, and converges on its authoritative source independently.
+
+This is correct because:
+- The authoritative source (Vault, file rendered by local agent, etc.) is the single source of truth.
+- Nodes can be in subtly different states without affecting correctness.
+- Netsplits are a non-event: each side serves its last-known-good; no reconciliation on heal.
+
+No user action required beyond starting the supervisor on each node.
+
+### 9.2 Horde integration for singleton secrets
+
+For cases where a secret should be owned by exactly one node at a time, Registries MUST be startable under `{:via, Horde.Registry, ...}`. See §6.5.
+
+**Requirements:**
+- The library MUST NOT hard-code `Registry` as the naming mechanism.
+- On process migration (Horde moves the Registry to another node), the new process MUST re-initialize from its child_spec args and perform a fresh initial load. The child_spec MUST be fully serializable (no closures, no PIDs, no refs).
+- Subscribers MUST survive Registry migration — from the subscriber's perspective, the Registry is a stable logical entity. On migration, existing subscribers receive the next rotation event normally.
+
+### 9.3 Subscriber monitoring across nodes
+
+Subscribers can live on different nodes than the Registry owning their secret.
+
+**Requirements:**
+- Subscriber monitoring uses `Process.monitor/1` (works across distributed Erlang).
+- On `{:DOWN, ...}` with `:noconnection` reason, the Registry removes the subscriber and emits telemetry.
+- On `:nodedown`, the Registry bulk-removes all subscribers from that node efficiently (≤O(n) where n is subscribers-per-node).
+- A reconnecting node's subscribers MUST re-subscribe explicitly. The library does not cache subscriptions across disconnects.
+
+### 9.4 Optional cluster-wide rotation events
+
+For operational visibility across a fleet, the library SHOULD provide an opt-in mechanism to broadcast rotation events cluster-wide using `:pg` (ships with OTP, no external dep):
+
+```elixir
+config :rotating_secrets,
+  cluster_broadcast: true,
+  cluster_broadcast_group: :rotating_secrets_rotations
+```
+
+When enabled, each rotation emits `{:rotating_secret_rotated_cluster, node(), name, version}` to the `:pg` group. Messages carry node, name, and version — **never the value**.
+
+**Requirements:**
+- Cluster broadcasting MUST be opt-in and default-off.
+- `:pg` is used (not Phoenix.PubSub) to keep the library dependency-free.
+- Broadcast failures (e.g., `:pg` not started, node partitioned) MUST NOT affect local rotation behavior.
+
+### 9.5 Cluster status inspection
+
+```elixir
+@spec cluster_status(name :: atom()) :: %{node() => {:ok, version :: term(), meta :: map()} | {:error, term()}}
+```
+
+Returns the current version and metadata for `name` on each connected node. Uses `:rpc.multicall/4` with a short timeout; unreachable nodes return `{:error, :noconnection}`.
+
+Intended for operational tooling, not hot-path code. Secret values are NEVER returned.
+
+## 10. Testing Requirements
+
+The library MUST ship with:
+
+- Unit tests per module, ≥90% line coverage on core.
+- Property tests via `StreamData` for:
+  - Rotation consistency: rotating at arbitrary points during concurrent reads never yields a torn value.
+  - Fail-soft: arbitrary sequences of `load/1` failures never produce a crash or an empty response after initial success.
+  - Version monotonicity: no observer sees a version number decrease.
+  - Subscriber fanout: N subscribers all receive rotation notifications under load.
+- Integration tests using `Source.File`:
+  - Atomic rename triggers reload.
+  - Concurrent reads during rotation see old-or-new, never nil, never error.
+- Log capture tests verifying no code path logs secret values.
+- Telemetry event assertion tests.
+- Multi-node tests using `LocalCluster` or equivalent:
+  - Independent Registries on two nodes converge on the same version after rotation.
+  - Horde-registered Registry correctly migrates; subscribers continue to receive events after migration.
+  - Subscribers on a disconnecting node are cleaned up; reconnecting nodes must re-subscribe.
+  - `:pg` cluster broadcast, when enabled, fires on each node.
+  - Netsplit: both sides continue serving; healing causes no errors.
+  - `cluster_status/1` handles unreachable nodes correctly.
+
+## 11. Dependencies
+
+- **Runtime (mandatory):** `telemetry` (universal, tiny).
+- **Runtime (optional):** `file_system` (for `Source.File` with `:file_watch` mode, declared `optional: true` in mix.exs).
+- **Dev/test only:** `stream_data`, `mox`, `local_cluster`.
+- **Explicitly not depended on:** `phoenix`, `phoenix_pubsub`, `horde`, `jason` (compile-time guarded impl), any HTTP client, any Vault client.
+
+Companion packages:
+- `rotating_secrets_vault` — depends on `rotating_secrets` + `req`. Vault HTTP source.
+- `rotating_secrets_testing` — depends on `rotating_secrets`. `Controllable` source and ExUnit helpers.
+
+## 12. Documentation Requirements
+
+- Module docs for every public module.
+- Conceptual overview (borrow / watch / metadata model) in the top-level module doc.
+- Guides:
+  - `guides/getting_started.md` — Vault Agent + file source (common production setup).
+  - `guides/rotation.md` — push vs. pull, subscriber patterns.
+  - `guides/security.md` — explicit non-zeroization decision, `:sensitive` flag, leak prevention.
+  - `guides/writing_a_source.md` — implementing the `Source` behaviour.
+  - `guides/clustering.md` — independent-per-node default, Horde integration, cluster broadcast.
+  - `guides/testing.md` — using `Source.Controllable` and `rotating_secrets_testing`.
+- HexDocs-ready; all examples doctested where possible.
+
+## 13. Versioning & Stability
+
+- Semantic versioning.
+- Pre-1.0: API may evolve; breaking changes documented in CHANGELOG.
+- Post-1.0: no breaking changes to the `Source` behaviour without a major version bump; adding optional callbacks is non-breaking.
+- The `Secret` struct's internal representation is opaque; callers MUST use `expose/1`, `meta/1`, `name/1`. Direct field access is not a stable API.
+- Telemetry event names and measurements are stable post-1.0; adding fields is non-breaking.
+- Supported Elixir versions: latest three stable minor releases. Supported OTP: latest two major releases.
+
+## 14. Open Questions
+
+- Should `subscribe/1` deliver an immediate "current value" notification on subscription, or only on changes? (Leaning: only on changes; subscriber explicitly calls `current/1` after subscribing.)
+- Should there be a `RotatingSecrets.Bundle` abstraction for multi-secret atomic rotation, or defer? (Defer to v2.)
+- Should the library provide Phoenix-specific integration helpers (LiveView auto-reload, endpoint config refresh), or leave to user-space? (Leave to user-space; the `subscribe/1` primitive is sufficient.)
+- Should `cluster_status/1` expose subscriber counts per node? (Conservative default: no; revisit if operational demand emerges.)
+- `:pg` vs. explicit `{:global, ...}` for cluster broadcast — `:pg` wins on scalability, but evaluate if smaller deployments prefer simpler mechanics.
+
+## 15. Acceptance Criteria Summary
+
+- [ ] Public API as specified in §6 is implemented and doctested.
+- [ ] `Source.File`, `Source.Env`, `Source.Memory` implemented and pass tests in §10.
+- [ ] All telemetry events in §7.5 fire at correct times.
+- [ ] Property tests for rotation consistency, fail-soft, and version monotonicity pass under 10,000+ generated cases.
+- [ ] `current/1` benchmark achieves ≥50,000 ops/sec on reference hardware.
+- [ ] Log capture tests confirm no code path leaks secret values.
+- [ ] `Inspect`, `String.Chars`, `Jason.Encoder` leak tests pass.
+- [ ] Multi-node tests pass: independent convergence, Horde migration, subscriber cleanup on nodedown, cluster broadcast, netsplit tolerance.
+- [ ] `cluster_status/1` implemented and tested.
+- [ ] HexDocs builds cleanly with no warnings.
+- [ ] `dialyzer` passes with no warnings on library code.
+- [ ] `credo --strict` passes.
+- [ ] Companion packages `rotating_secrets_vault` and `rotating_secrets_testing` have their own PRDs and initial implementations.

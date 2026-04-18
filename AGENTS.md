@@ -53,9 +53,7 @@ Observlib.setup(Application.fetch_env!(:my_app, :observlib))
 
 Property tests use [StreamData](https://hexdocs.pm/stream_data) (`use ExUnitProperties`).
 
-Rules:
-- Every non-trivial pure function or Ash changeset validation must have at least one `property` test
-- `ExUnit.Case` `test` blocks are for specific edge cases and regression tests; `property` blocks cover general behaviour
+Rules (see global policy for when property tests are required):
 - Use `StreamData.filter/2` to discard invalid inputs rather than asserting inside a filter
 - Custom generators belong in a `MyApp.Generators` module, not inline in test files
 - Put property tests in `test/<context>/<module>_properties_test.exs`, separate from unit tests
