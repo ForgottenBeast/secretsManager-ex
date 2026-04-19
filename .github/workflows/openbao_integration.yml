@@ -13,11 +13,12 @@ jobs:
         run: |
           # Verify the exact asset filename at https://github.com/openbao/openbao/releases
           # before changing BAO_VERSION — asset naming changes between releases.
-          BAO_VERSION=2.2.0
+          BAO_VERSION=2.5.2
           curl -fsSL \
-            "https://github.com/openbao/openbao/releases/download/v${BAO_VERSION}/bao_${BAO_VERSION}_linux_amd64.zip" \
-            -o bao.zip
-          unzip bao.zip bao -d /usr/local/bin/
+            "https://github.com/openbao/openbao/releases/download/v${BAO_VERSION}/bao_${BAO_VERSION}_Linux_x86_64.tar.gz" \
+            -o bao.tar.gz
+          tar -xzf bao.tar.gz bao
+          mv bao /usr/local/bin/bao
           chmod +x /usr/local/bin/bao
           bao version
 
