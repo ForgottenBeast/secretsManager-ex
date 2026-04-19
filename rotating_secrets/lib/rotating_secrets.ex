@@ -144,4 +144,46 @@ defmodule RotatingSecrets do
   def deregister(name) when is_atom(name) do
     Supervisor.deregister(name)
   end
+
+  # ---------------------------------------------------------------------------
+  # Cluster
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  Returns the version and metadata for `name` on every connected node.
+
+  Calls `RotatingSecrets.Registry.version_and_meta/1` on each node in
+  `Node.list/0` via `:rpc.multicall/5` with a 5-second timeout.
+
+  The result map keys are node names. Unreachable nodes and RPC failures
+  both map to `{:error, :noconnection}`. Secret values are never returned.
+
+  ## Example
+
+      %{
+        :"a@host" => {:ok, 3, %{ttl_seconds: 300}},
+        :"b@host" => {:error, :noconnection}
+      } = RotatingSecrets.cluster_status(:db_password)
+  """
+  @spec cluster_status(name :: atom()) ::
+          %{node() => {:ok, version :: term(), meta :: map()} | {:error, term()}}
+  def cluster_status(name) when is_atom(name) do
+    nodes = Node.list()
+    {results, bad_nodes} =
+      :rpc.multicall(nodes, RotatingSecrets.Registry, :version_and_meta, [name], 5_000)
+
+    good_nodes = nodes -- bad_nodes
+
+    good_results =
+      good_nodes
+      |> Enum.zip(results)
+      |> Map.new(fn
+        {node, {:badrpc, _}} -> {node, {:error, :noconnection}}
+        {node, result} -> {node, result}
+      end)
+
+    bad_results = Map.new(bad_nodes, fn node -> {node, {:error, :noconnection}} end)
+
+    Map.merge(good_results, bad_results)
+  end
 end

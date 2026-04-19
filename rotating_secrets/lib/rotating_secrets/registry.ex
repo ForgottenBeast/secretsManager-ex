@@ -60,12 +60,29 @@ defmodule RotatingSecrets.Registry do
   end
 
   # ---------------------------------------------------------------------------
+  # Public module-level function for cluster RPC
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  Returns the current version and metadata for the named secret on this node.
+
+  Intended to be called via `:rpc.multicall` from `RotatingSecrets.cluster_status/1`.
+  Never returns secret values.
+  """
+  @spec version_and_meta(name :: atom()) ::
+          {:ok, version :: term(), meta :: map()} | {:error, term()}
+  def version_and_meta(name) when is_atom(name) do
+    GenServer.call({:via, Registry, {RotatingSecrets.ProcessRegistry, name}}, :version_and_meta)
+  end
+
+  # ---------------------------------------------------------------------------
   # GenServer callbacks
   # ---------------------------------------------------------------------------
 
   @impl GenServer
   def init(opts) do
     Process.flag(:sensitive, true)
+    :net_kernel.monitor_nodes(true)
 
     name = Keyword.fetch!(opts, :name)
     source = Keyword.fetch!(opts, :source)
@@ -156,6 +173,19 @@ defmodule RotatingSecrets.Registry do
     end
   end
 
+  def handle_call(:version_and_meta, _from, state) do
+    reply =
+      case state.lifecycle do
+        s when s in [:loading, :expired] ->
+          {:error, s}
+
+        _ ->
+          {:ok, Map.get(state.secret.meta, :version), state.secret.meta}
+      end
+
+    {:reply, reply, state}
+  end
+
   @impl GenServer
   def handle_info(:do_refresh, state) do
     case do_load(state) do
@@ -164,6 +194,24 @@ defmodule RotatingSecrets.Registry do
 
       {_class, _reason, new_state} ->
         {:noreply, schedule_backoff(new_state)}
+    end
+  end
+
+  def handle_info({:DOWN, monitor_ref, :process, _pid, :noconnection}, state) do
+    case Map.get(state.subscribers, monitor_ref) do
+      nil ->
+        {:noreply, state}
+
+      {sub_ref, _pid} ->
+        new_state = %{
+          state
+          | subscribers: Map.delete(state.subscribers, monitor_ref),
+            sub_refs: Map.delete(state.sub_refs, sub_ref)
+        }
+
+        Telemetry.emit_subscriber_removed(state.name, :noconnection)
+
+        {:noreply, new_state}
     end
   end
 
@@ -183,6 +231,29 @@ defmodule RotatingSecrets.Registry do
 
         {:noreply, new_state}
     end
+  end
+
+  def handle_info({:nodedown, node}, state) do
+    {to_remove, _} =
+      Enum.split_with(state.subscribers, fn {_mref, {_sub_ref, pid}} ->
+        node(pid) == node
+      end)
+
+    Enum.each(to_remove, fn {mref, _} ->
+      Process.demonitor(mref, [:flush])
+      Telemetry.emit_subscriber_removed(state.name, :nodedown)
+    end)
+
+    remove_mrefs = Enum.map(to_remove, &elem(&1, 0))
+    remove_sub_refs = Enum.map(to_remove, fn {_, {sub_ref, _}} -> sub_ref end)
+
+    new_state = %{
+      state
+      | subscribers: Map.drop(state.subscribers, remove_mrefs),
+        sub_refs: Map.drop(state.sub_refs, remove_sub_refs)
+    }
+
+    {:noreply, new_state}
   end
 
   def handle_info(msg, state) do
@@ -317,5 +388,27 @@ defmodule RotatingSecrets.Registry do
     Enum.each(subscribers, fn {_monitor_ref, {sub_ref, pid}} ->
       send(pid, {:rotating_secret_rotated, sub_ref, name, version})
     end)
+
+    maybe_pg_broadcast(name, version)
+  end
+
+  defp maybe_pg_broadcast(name, version) do
+    if Application.get_env(:rotating_secrets, :cluster_broadcast, false) do
+      group = Application.get_env(
+        :rotating_secrets,
+        :cluster_broadcast_group,
+        :rotating_secrets_rotations
+      )
+
+      try do
+        members = :pg.get_members(group)
+
+        Enum.each(members, fn pid ->
+          send(pid, {:rotating_secret_rotated_cluster, node(), name, version})
+        end)
+      rescue
+        _ -> :ok
+      end
+    end
   end
 end
