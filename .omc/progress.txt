@@ -1,0 +1,82 @@
+Ralph session: LSE Series Phases 6-9
+Started: 2026-04-19
+Task: Implement Phases 6-9 of rotating_secrets (public API, File/Env/Memory sources)
+
+== Iteration 1 — COMPLETE ==
+
+### US-001: Registry subscribe_changes patch + Public API
+- Added subscribe_changes/1 call in Registry.do_load when prev_lifecycle == :loading
+  and function_exported?(source, :subscribe_changes, 1)
+- Added :not_found and :forbidden to classify_error/1 -> :permanent_error
+- Replaced hello-world stub in lib/rotating_secrets.ex with full public API:
+  current/1, current!/1, with_secret/2, subscribe/1, unsubscribe/2, register/2, deregister/1
+- Updated test setups to stub MockSource.subscribe_changes -> :not_supported
+
+### US-002: Source.File
+- lib/rotating_secrets/source/file.ex created
+- :file_watch mode: FileSystem.start_link on PARENT directory (Path.dirname)
+- {:interval, ms} mode: self-scheduling Process.send_after timer
+- handle_change_notification matches :modified/:moved_to/:created on basename
+- terminate/1 calls GenServer.stop(watcher_pid) or Process.cancel_timer(ref)
+
+### US-003: Source.Env
+- lib/rotating_secrets/source/env.ex created
+- init/1 emits Telemetry.emit_dev_source_in_use + Logger.warning
+- load/1 uses System.fetch_env/1 (not fetch_env!)
+- Returns {:error, :enoent, state} when var not set
+- No subscribe_changes exported
+
+### US-004: Source.Memory
+- lib/rotating_secrets/source/memory.ex created
+- Agent named {:via, Registry, {ProcessRegistry, {Memory, name}}}
+- subscribe_changes/1 stores channel_ref in both Agent and source_state
+- update/2 atomically updates Agent value + sends {channel_ref, :updated} to Registry
+- terminate/1 stops Agent with try/catch
+
+### Deslop pass (post-review)
+- Source.Env.init/1: removed redundant `return_error = ...; return_error` pattern
+- Source.Memory.update/2: corrected @spec to include {:error, :not_found}
+
+### Verification
+- 43/43 tests pass
+- Architect review: APPROVED
+- Commits: 6c3dbf4 (implementation), deslop fixup
+
+### Beads closed
+- secretmanager-ex-lse.7 (Phase 6: public API)
+- secretmanager-ex-lse.8 (Phase 7: File source)
+- secretmanager-ex-lse.9 (Phase 8: Env source)
+- secretmanager-ex-lse.10 (Phase 9: Memory source)
+
+---
+
+Ralph session: Phase 10 — Clustering Support
+Started: 2026-04-19
+Task: Implement Phase 10 (clustering support) for rotating_secrets
+
+== Iteration 1 — COMPLETE ==
+
+### US-P10-001: Per-node subscriber cleanup
+- init/1: added :net_kernel.monitor_nodes(true) after Process.flag(:sensitive, true)
+- Added handle_info({:DOWN, mref, :process, _pid, :noconnection}, state) BEFORE the
+  general DOWN clause — removes subscriber, emits emit_subscriber_removed(:noconnection)
+- Added handle_info({:nodedown, node}, state) — Enum.split_with by node(pid) == node,
+  demonitors each, emits emit_subscriber_removed(:nodedown) per removed subscriber,
+  Map.drop for both subscribers and sub_refs maps
+
+### US-P10-002: Opt-in :pg cluster broadcast
+- fan_out_notifications/3 now calls maybe_pg_broadcast/2 after local fan-out
+- maybe_pg_broadcast/2: reads Application.get_env(:rotating_secrets, :cluster_broadcast, false)
+- When true: reads :cluster_broadcast_group (default :rotating_secrets_rotations),
+  calls :pg.get_members/1, sends {:rotating_secret_rotated_cluster, node(), name, version}
+- Entire :pg call wrapped in try/rescue — broadcast failures never propagate to rotation
+
+### US-P10-003: version_and_meta/1 and cluster_status/1
+- Registry.version_and_meta/1: public module function, GenServer.call via ProcessRegistry
+- handle_call(:version_and_meta): {:ok, Map.get(meta, :version), meta} or {:error, lifecycle}
+  for :loading/:expired; no secret value returned
+- RotatingSecrets.cluster_status/1: :rpc.multicall(Node.list(), Registry, :version_and_meta,
+  [name], 5_000); folds {:badrpc, _} and BadNodes to {:error, :noconnection}
+
+### Verification
+- 43/43 tests pass (no warnings)
