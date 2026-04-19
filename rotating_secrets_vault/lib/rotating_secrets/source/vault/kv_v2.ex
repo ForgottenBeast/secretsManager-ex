@@ -10,6 +10,7 @@ defmodule RotatingSecrets.Source.Vault.KvV2 do
     * `:mount` — KV v2 mount path, e.g. `"secret"`. Required.
     * `:path` — Secret path within the mount, e.g. `"myapp/db"`. Required.
     * `:token` — Vault token for authentication. Required.
+    * `:key` — field name to extract from the KV data map, e.g. `"value"`. Defaults to `"value"`.
     * `:namespace` — Vault Enterprise namespace (non-empty binary). Optional.
     * `:req_options` — keyword list merged into `Req.new/1`. For test injection only.
   """
@@ -32,6 +33,7 @@ defmodule RotatingSecrets.Source.Vault.KvV2 do
          mount: mount,
          path: path,
          token: token,
+         key: Keyword.get(opts, :key, "value"),
          namespace: Keyword.get(opts, :namespace),
          req_options: Keyword.get(opts, :req_options, [])
        }}
@@ -45,10 +47,26 @@ defmodule RotatingSecrets.Source.Vault.KvV2 do
 
     case state |> Map.to_list() |> HTTP.base_request() |> HTTP.get(url_path) do
       {:ok, body} ->
-        material = get_in(body, ["data", "data"])
+        material = get_in(body, ["data", "data", state.key])
         version = get_in(body, ["data", "metadata", "version"])
-        meta = %{version: version, content_hash: sha256_hex(material)}
-        {:ok, material, meta, state}
+
+        cond do
+          is_nil(material) ->
+            {:error, :not_found, state}
+
+          not is_binary(material) ->
+            {:error, {:invalid_value, material}, state}
+
+          true ->
+            meta = %{version: version, content_hash: sha256_hex(material)}
+            {:ok, material, meta, state}
+        end
+
+      {:error, :vault_secret_not_found} ->
+        {:error, :not_found, state}
+
+      {:error, :vault_auth_error} ->
+        {:error, :forbidden, state}
 
       {:error, reason}
       when reason in [

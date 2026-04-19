@@ -15,7 +15,7 @@ defmodule RotatingSecretsVault.Integration.TtlTest do
     path = "test-ttl-meta-#{System.unique_integer([:positive])}"
     name = :"vault_ttl_meta_#{System.unique_integer([:positive])}"
 
-    OpenBaoHelper.write_secret!("secret", path, "initial-value", %{"ttl_seconds" => "1"})
+    OpenBaoHelper.write_secret!("secret", path, %{"value" => "initial-value"}, %{"ttl_seconds" => "1"})
 
     on_exit(fn ->
       RotatingSecrets.deregister(name)
@@ -37,7 +37,7 @@ defmodule RotatingSecretsVault.Integration.TtlTest do
 
     # Update KV value at ~500ms — before the 666ms TTL-driven refresh fires
     Process.sleep(500)
-    OpenBaoHelper.write_secret!("secret", path, "updated-value")
+    OpenBaoHelper.write_secret!("secret", path, %{"value" => "updated-value"})
 
     # Wait for rotation event (TTL-driven refresh at 666ms; give 2000ms budget)
     assert_receive {:telemetry, [:rotating_secrets, :rotation], _measurements,
@@ -58,7 +58,7 @@ defmodule RotatingSecretsVault.Integration.TtlTest do
     path = "test-ttl-fallback-#{System.unique_integer([:positive])}"
     name = :"vault_ttl_fallback_#{System.unique_integer([:positive])}"
 
-    OpenBaoHelper.write_secret!("secret", path, "first-value")
+    OpenBaoHelper.write_secret!("secret", path, %{"value" => "first-value"})
 
     on_exit(fn ->
       RotatingSecrets.deregister(name)
@@ -79,7 +79,7 @@ defmodule RotatingSecretsVault.Integration.TtlTest do
         fallback_interval_ms: 300
       )
 
-    OpenBaoHelper.write_secret!("secret", path, "second-value")
+    OpenBaoHelper.write_secret!("secret", path, %{"value" => "second-value"})
 
     assert_receive {:telemetry, [:rotating_secrets, :rotation], _measurements,
                     %{name: ^name}},
@@ -99,7 +99,7 @@ defmodule RotatingSecretsVault.Integration.TtlTest do
     path = "test-ttl-version-#{System.unique_integer([:positive])}"
     name = :"vault_ttl_version_#{System.unique_integer([:positive])}"
 
-    OpenBaoHelper.write_secret!("secret", path, "v1-value")
+    OpenBaoHelper.write_secret!("secret", path, %{"value" => "v1-value"})
 
     on_exit(fn ->
       RotatingSecrets.deregister(name)
@@ -121,14 +121,14 @@ defmodule RotatingSecretsVault.Integration.TtlTest do
       )
 
     # Write v2 and wait for rotation
-    OpenBaoHelper.write_secret!("secret", path, "v2-value")
+    OpenBaoHelper.write_secret!("secret", path, %{"value" => "v2-value"})
 
     assert_receive {:telemetry, [:rotating_secrets, :rotation], %{version: v2},
                     %{name: ^name}},
                    2000
 
     # Write v3 and wait for rotation
-    OpenBaoHelper.write_secret!("secret", path, "v3-value")
+    OpenBaoHelper.write_secret!("secret", path, %{"value" => "v3-value"})
 
     assert_receive {:telemetry, [:rotating_secrets, :rotation], %{version: v3},
                     %{name: ^name}},
