@@ -46,6 +46,9 @@ cover/
 *.tmp
 .elixir-tools/
 
+# OMC tool state (session-local, not project code)
+.omc/
+
 # Phoenix specific
 /priv/static/
 /assets/node_modules/
