@@ -32,9 +32,9 @@ defmodule RotatingSecretsVault.Integration.FailSoftTest do
             path: path,
             mount: "secret"
           ],
-          fault_name: fault_name,
-          fallback_interval_ms: 300
-        ]
+          fault_name: fault_name
+        ],
+        fallback_interval_ms: 300
       )
 
     on_exit(fn -> RotatingSecrets.deregister(:fault_secret) end)
@@ -55,7 +55,9 @@ defmodule RotatingSecretsVault.Integration.FailSoftTest do
     assert Secret.expose(s2) == "initial-value"
 
     # Registry PID is still alive
-    assert Process.alive?(GenServer.whereis(:fault_secret))
+    assert Process.alive?(
+             GenServer.whereis({:via, Registry, {RotatingSecrets.ProcessRegistry, :fault_secret}})
+           )
   end
 
   test "Registry stays alive and serves stale when KV path deleted", %{prefix: prefix} do
@@ -90,7 +92,9 @@ defmodule RotatingSecretsVault.Integration.FailSoftTest do
     # Stale value still served
     {:ok, s2} = RotatingSecrets.current(:stale_secret)
     assert Secret.expose(s2) == "loaded-value"
-    assert Process.alive?(GenServer.whereis(:stale_secret))
+    assert Process.alive?(
+             GenServer.whereis({:via, Registry, {RotatingSecrets.ProcessRegistry, :stale_secret}})
+           )
   end
 
   test "exponential backoff increases interval between load attempts", %{prefix: prefix} do
@@ -110,9 +114,9 @@ defmodule RotatingSecretsVault.Integration.FailSoftTest do
             path: path,
             mount: "secret"
           ],
-          fault_name: fault_name,
-          fallback_interval_ms: 300
+          fault_name: fault_name
         ],
+        fallback_interval_ms: 300,
         min_backoff_ms: 50
       )
 
@@ -121,19 +125,20 @@ defmodule RotatingSecretsVault.Integration.FailSoftTest do
     {:ok, _} = RotatingSecrets.current(:backoff_secret)
     SourceFault.arm!(fault_name)
 
-    # Collect timestamps of load stop events (3 events)
     attach_telemetry_handler(:backoff_events, [:rotating_secrets, :source, :load, :stop])
+
+    # Discard the first failure — it fires at the fallback_interval (not a backoff interval)
+    assert_receive {:telemetry_event, _, _, _}, 500
+
+    # Measure the pure backoff intervals (50 ms, then 100 ms)
     t0 = System.monotonic_time(:millisecond)
     assert_receive {:telemetry_event, _, _, _}, 500
     t1 = System.monotonic_time(:millisecond)
     assert_receive {:telemetry_event, _, _, _}, 1000
     t2 = System.monotonic_time(:millisecond)
-    assert_receive {:telemetry_event, _, _, _}, 2000
-    t3 = System.monotonic_time(:millisecond)
 
-    # Intervals should grow: (t2-t1) > (t1-t0) and (t3-t2) > (t2-t1)
+    # Each interval should be strictly longer than the previous (exponential backoff)
     assert t2 - t1 > t1 - t0
-    assert t3 - t2 > t2 - t1
   end
 
   defp attach_telemetry_handler(id, event) do

@@ -32,7 +32,8 @@ defmodule RotatingSecretsVault.Integration.SubscriberTest do
     {:ok, _pid} =
       RotatingSecrets.register(name,
         source: KvV2,
-        source_opts: source_opts(prefix, path_suffix) ++ [fallback_interval_ms: 300]
+        source_opts: source_opts(prefix, path_suffix),
+        fallback_interval_ms: 300
       )
   end
 
@@ -53,7 +54,8 @@ defmodule RotatingSecretsVault.Integration.SubscriberTest do
     {:ok, _pid} =
       RotatingSecrets.register(name,
         source: KvV2,
-        source_opts: source_opts(prefix, "no_leak_key") ++ [fallback_interval_ms: 300]
+        source_opts: source_opts(prefix, "no_leak_key"),
+        fallback_interval_ms: 300
       )
 
     {:ok, ref} = RotatingSecrets.subscribe(name)
