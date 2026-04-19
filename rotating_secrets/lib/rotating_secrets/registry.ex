@@ -105,24 +105,19 @@ defmodule RotatingSecrets.Registry do
           fallback_ms: Keyword.get(opts, :fallback_interval_ms, @default_fallback_ms)
         }
 
-        {:ok, state, {:continue, :initial_load}}
+        case do_load(state) do
+          {:ok, new_state} ->
+            {:ok, new_state}
+
+          {:permanent_error, reason, _new_state} ->
+            {:stop, {:permanent_load_failure, reason}}
+
+          {:transient_error, reason, _new_state} ->
+            {:stop, {:transient_load_failure, reason}}
+        end
 
       {:error, reason} ->
         {:stop, {:source_init_failed, reason}}
-    end
-  end
-
-  @impl GenServer
-  def handle_continue(:initial_load, state) do
-    case do_load(state) do
-      {:ok, new_state} ->
-        {:noreply, new_state}
-
-      {:permanent_error, reason, new_state} ->
-        {:stop, {:permanent_load_failure, reason}, new_state}
-
-      {:transient_error, reason, new_state} ->
-        {:stop, {:transient_load_failure, reason}, new_state}
     end
   end
 

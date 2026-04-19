@@ -70,37 +70,31 @@ defmodule RotatingSecrets.RegistryTest do
       assert Secret.meta(secret) == @meta
     end
 
-    test "stops with :permanent_load_failure on :enoent" do
+    test "returns :permanent_load_failure on :enoent" do
       MockSource
       |> stub(:init, fn _opts -> {:ok, %{}} end)
       |> expect(:load, fn state -> {:error, :enoent, state} end)
 
       %{opts: opts} = start_registry()
-      {:ok, pid} = start_supervised({Registry, opts}, restart: :temporary)
-      ref = Process.monitor(pid)
-      assert_receive {:DOWN, ^ref, :process, ^pid, {:permanent_load_failure, :enoent}}, 500
+      assert {:error, {{:permanent_load_failure, :enoent}, _}} = start_supervised({Registry, opts})
     end
 
-    test "stops with :permanent_load_failure on :eacces" do
+    test "returns :permanent_load_failure on :eacces" do
       MockSource
       |> stub(:init, fn _opts -> {:ok, %{}} end)
       |> expect(:load, fn state -> {:error, :eacces, state} end)
 
       %{opts: opts} = start_registry()
-      {:ok, pid} = start_supervised({Registry, opts}, restart: :temporary)
-      ref = Process.monitor(pid)
-      assert_receive {:DOWN, ^ref, :process, ^pid, {:permanent_load_failure, :eacces}}, 500
+      assert {:error, {{:permanent_load_failure, :eacces}, _}} = start_supervised({Registry, opts})
     end
 
-    test "stops with :transient_load_failure on network error" do
+    test "returns :transient_load_failure on network error" do
       MockSource
       |> stub(:init, fn _opts -> {:ok, %{}} end)
       |> expect(:load, fn state -> {:error, :timeout, state} end)
 
       %{opts: opts} = start_registry()
-      {:ok, pid} = start_supervised({Registry, opts}, restart: :temporary)
-      ref = Process.monitor(pid)
-      assert_receive {:DOWN, ^ref, :process, ^pid, {:transient_load_failure, :timeout}}, 500
+      assert {:error, {{:transient_load_failure, :timeout}, _}} = start_supervised({Registry, opts})
     end
 
     test "stops with :source_init_failed when source.init fails" do

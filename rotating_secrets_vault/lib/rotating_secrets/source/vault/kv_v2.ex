@@ -49,6 +49,8 @@ defmodule RotatingSecrets.Source.Vault.KvV2 do
       {:ok, body} ->
         material = get_in(body, ["data", "data", state.key])
         version = get_in(body, ["data", "metadata", "version"])
+        custom_meta = get_in(body, ["data", "metadata", "custom_metadata"]) || %{}
+        ttl_seconds = parse_ttl(custom_meta["ttl_seconds"])
 
         cond do
           is_nil(material) ->
@@ -58,7 +60,12 @@ defmodule RotatingSecrets.Source.Vault.KvV2 do
             {:error, {:invalid_value, material}, state}
 
           true ->
-            meta = %{version: version, content_hash: sha256_hex(material)}
+            meta =
+              %{version: version, content_hash: sha256_hex(material)}
+              |> then(fn m ->
+                if ttl_seconds, do: Map.put(m, :ttl_seconds, ttl_seconds), else: m
+              end)
+
             {:ok, material, meta, state}
         end
 
@@ -101,6 +108,16 @@ defmodule RotatingSecrets.Source.Vault.KvV2 do
   defp validate_namespace(nil), do: :ok
   defp validate_namespace(ns) when is_binary(ns) and byte_size(ns) > 0, do: :ok
   defp validate_namespace(_), do: {:error, {:invalid_option, :namespace}}
+
+  defp parse_ttl(s) when is_binary(s) do
+    case Integer.parse(s) do
+      {n, ""} when n > 0 -> n
+      _ -> nil
+    end
+  end
+
+  defp parse_ttl(n) when is_integer(n) and n > 0, do: n
+  defp parse_ttl(_), do: nil
 
   defp sha256_hex(data) do
     hash = :crypto.hash(:sha256, data)

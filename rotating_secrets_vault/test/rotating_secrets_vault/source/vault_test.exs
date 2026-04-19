@@ -76,6 +76,34 @@ defmodule RotatingSecretsVault.Source.VaultTest do
     end
   end
 
+  describe "load/1 - ttl_seconds from custom_metadata" do
+    test "string ttl_seconds in custom_metadata is extracted as integer" do
+      Req.Test.stub(@stub_name, fn conn ->
+        Req.Test.json(conn, %{
+          "data" => %{
+            "data" => %{"value" => "secret"},
+            "metadata" => %{
+              "version" => 2,
+              "custom_metadata" => %{"ttl_seconds" => "300"}
+            }
+          }
+        })
+      end)
+
+      {:ok, state} = KvV2.init(stub_opts())
+      assert {:ok, "secret", meta, _state} = KvV2.load(state)
+      assert meta.ttl_seconds == 300
+    end
+
+    test "missing custom_metadata leaves :ttl_seconds absent from meta" do
+      Req.Test.stub(@stub_name, fn conn -> data_response(conn) end)
+
+      {:ok, state} = KvV2.init(stub_opts())
+      assert {:ok, _material, meta, _state} = KvV2.load(state)
+      refute Map.has_key?(meta, :ttl_seconds)
+    end
+  end
+
   describe "load/1 - invalid value type" do
     test "non-binary value (integer) in KV data causes error" do
       Req.Test.stub(@stub_name, fn conn ->
