@@ -50,8 +50,14 @@ defmodule RotatingSecrets.Source.Vault.KvV2 do
         meta = %{version: version, content_hash: sha256_hex(material)}
         {:ok, material, meta, state}
 
+      {:error, :vault_secret_not_found} ->
+        {:error, :not_found, state}
+
+      {:error, :vault_auth_error} ->
+        {:error, :forbidden, state}
+
       {:error, reason} ->
-        {:error, reason, state}
+        {:error, {:connection_error, reason}, state}
     end
   end
 

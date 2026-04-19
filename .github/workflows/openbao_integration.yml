@@ -1,0 +1,48 @@
+name: OpenBao Integration Tests
+on: [push, pull_request]
+jobs:
+  openbao-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Kill any existing bao processes (port conflict guard)
+        run: pkill bao || true
+
+      - name: Install OpenBao
+        run: |
+          # Verify the exact asset filename at https://github.com/openbao/openbao/releases
+          # before changing BAO_VERSION — asset naming changes between releases.
+          BAO_VERSION=2.2.0
+          curl -fsSL \
+            "https://github.com/openbao/openbao/releases/download/v${BAO_VERSION}/bao_${BAO_VERSION}_linux_amd64.zip" \
+            -o bao.zip
+          unzip bao.zip bao -d /usr/local/bin/
+          chmod +x /usr/local/bin/bao
+          bao version
+
+      - uses: erlef/setup-beam@v1
+        with:
+          elixir-version: '1.18'
+          otp-version: '27'
+
+      - name: Cache deps
+        uses: actions/cache@v4
+        with:
+          path: |
+            rotating_secrets/deps
+            rotating_secrets_vault/deps
+          key: ${{ runner.os }}-openbao-deps-${{ hashFiles('rotating_secrets_vault/mix.lock') }}
+
+      - name: Install deps
+        run: |
+          cd rotating_secrets && mix deps.get
+          cd ../rotating_secrets_vault && mix deps.get
+
+      - name: Run unit tests (no live server)
+        run: cd rotating_secrets_vault && mix test
+
+      - name: Run OpenBao integration tests
+        run: cd rotating_secrets_vault && mix test --only openbao
+        env:
+          MIX_ENV: test

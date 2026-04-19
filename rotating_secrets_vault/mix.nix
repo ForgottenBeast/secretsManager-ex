@@ -307,6 +307,19 @@ let
       beamDeps = [ finch jason mime plug ];
     };
 
+    stream_data = buildMix rec {
+      name = "stream_data";
+      version = "1.3.0";
+
+      src = fetchHex {
+        pkg = "stream_data";
+        version = "${version}";
+        sha256 = "3cc552e286e817dca43c98044c706eec9318083a1480c52ae2688b08e2936e3c";
+      };
+
+      beamDeps = [];
+    };
+
     telemetry = buildRebar3 rec {
       name = "telemetry";
       version = "1.4.1";
