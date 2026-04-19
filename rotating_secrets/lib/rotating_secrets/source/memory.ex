@@ -45,7 +45,7 @@ defmodule RotatingSecrets.Source.Memory do
   Returns `:ok`. If the secret is not registered or not yet subscribed, the update
   is stored in the Agent but no notification is sent.
   """
-  @spec update(name :: atom(), new_value :: binary()) :: :ok
+  @spec update(name :: atom(), new_value :: binary()) :: :ok | {:error, :not_found}
   def update(name, new_value) when is_atom(name) do
     agent_key = {__MODULE__, name}
 

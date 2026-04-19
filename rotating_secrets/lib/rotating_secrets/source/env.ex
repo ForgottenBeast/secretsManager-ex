@@ -34,8 +34,7 @@ defmodule RotatingSecrets.Source.Env do
     var_name = Keyword.fetch!(opts, :var_name)
 
     unless is_binary(var_name) do
-      return_error = {:error, {:invalid_option, {:var_name, var_name}}}
-      return_error
+      {:error, {:invalid_option, {:var_name, var_name}}}
     else
       secret_name = Keyword.get(opts, :name, __MODULE__)
 
