@@ -57,4 +57,16 @@ defmodule RotatingSecrets.SecretTest do
       assert_raise ArgumentError, fn -> "#{secret()}" end
     end
   end
+
+  if Code.ensure_loaded?(Jason) do
+    describe "Jason.Encoder" do
+      test "Jason.encode!/1 raises ArgumentError" do
+        assert_raise ArgumentError, fn -> Jason.encode!(secret()) end
+      end
+
+      test "nested in a map raises ArgumentError" do
+        assert_raise ArgumentError, fn -> Jason.encode!(%{secret: secret()}) end
+      end
+    end
+  end
 end

@@ -303,7 +303,20 @@ defmodule RotatingSecrets.Registry do
   defp do_load(state) do
     Telemetry.emit_load_start(state.name, state.source)
 
-    case state.source.load(state.source_state) do
+    result =
+      try do
+        state.source.load(state.source_state)
+      rescue
+        exception ->
+          Telemetry.emit_load_exception(state.name, state.source, :error, exception)
+          {:error, {:exception, exception}, state.source_state}
+      catch
+        kind, reason ->
+          Telemetry.emit_load_exception(state.name, state.source, kind, reason)
+          {:error, {:exception, {kind, reason}}, state.source_state}
+      end
+
+    case result do
       {:ok, material, meta, new_source_state} ->
         Telemetry.emit_load_stop(state.name, state.source, :ok)
 
