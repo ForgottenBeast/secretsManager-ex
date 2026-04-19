@@ -6,6 +6,7 @@ openbao_available =
   (System.find_executable("bao") != nil or System.get_env("OPENBAO_BIN") != nil)
 
 if openbao_available do
+  {:ok, _} = RotatingSecrets.Supervisor.start_link()
   port = OpenBaoHelper.start_server!()
   Application.put_env(:rotating_secrets_vault_test, :openbao_port, port)
   # ExUnit.after_suite/1 runs within the test lifecycle — guaranteed to execute

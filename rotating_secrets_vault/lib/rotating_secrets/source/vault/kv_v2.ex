@@ -50,14 +50,17 @@ defmodule RotatingSecrets.Source.Vault.KvV2 do
         meta = %{version: version, content_hash: sha256_hex(material)}
         {:ok, material, meta, state}
 
-      {:error, :vault_secret_not_found} ->
-        {:error, :not_found, state}
-
-      {:error, :vault_auth_error} ->
-        {:error, :forbidden, state}
+      {:error, reason}
+      when reason in [
+             :vault_connection_refused,
+             :vault_timeout,
+             :vault_tls_error,
+             :vault_unexpected_error
+           ] ->
+        {:error, {:connection_error, reason}, state}
 
       {:error, reason} ->
-        {:error, {:connection_error, reason}, state}
+        {:error, reason, state}
     end
   end
 

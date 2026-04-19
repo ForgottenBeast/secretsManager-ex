@@ -16,9 +16,13 @@ defmodule RotatingSecrets.Source.Vault.HTTP do
 
   @spec get(Req.Request.t(), String.t()) :: {:ok, map()} | {:error, atom()}
   def get(base_req, path) do
-    base_req
-    |> Req.get(url: path)
-    |> normalise_response()
+    try do
+      base_req
+      |> Req.get(url: path)
+      |> normalise_response()
+    rescue
+      e in Req.TransportError -> normalise_response({:error, e})
+    end
   end
 
   @spec normalise_response({:ok, Req.Response.t()} | {:error, Exception.t()}) ::

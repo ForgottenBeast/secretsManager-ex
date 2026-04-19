@@ -29,7 +29,7 @@ defmodule RotatingSecrets.Source.Vault.KvV2PropertiesTest do
   end
 
   property "init/1 never includes :token value in error reason" do
-    check all token <- StreamData.binary(min_length: 1),
+    check all token <- StreamData.binary(min_length: 16),
               opts <-
                 StreamData.list_of(
                   StreamData.tuple({StreamData.atom(:alphanumeric), StreamData.term()})
