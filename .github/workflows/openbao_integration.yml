@@ -42,8 +42,14 @@ jobs:
 
       - name: Run unit tests (no live server)
         run: cd rotating_secrets_vault && mix test
+        env:
+          OPENBAO_BIN: /usr/local/bin/bao
+
+      - name: Kill bao between test steps
+        run: pkill bao || true
 
       - name: Run OpenBao integration tests
         run: cd rotating_secrets_vault && mix test --only openbao
         env:
           MIX_ENV: test
+          OPENBAO_BIN: /usr/local/bin/bao
