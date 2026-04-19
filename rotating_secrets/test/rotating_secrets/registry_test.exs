@@ -13,6 +13,7 @@ defmodule RotatingSecrets.RegistryTest do
 
   setup do
     stub(MockSource, :terminate, fn _state -> :ok end)
+    stub(MockSource, :subscribe_changes, fn _state -> :not_supported end)
     :ok
   end
 

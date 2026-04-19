@@ -15,6 +15,7 @@ defmodule RotatingSecrets.SupervisorTest do
 
   setup do
     stub(MockSource, :terminate, fn _state -> :ok end)
+    stub(MockSource, :subscribe_changes, fn _state -> :not_supported end)
     start_supervised!(Supervisor)
     :ok
   end

@@ -240,6 +240,18 @@ defmodule RotatingSecrets.Registry do
         version = Map.get(meta, :version)
         prev_lifecycle = state.lifecycle
 
+        # On first load, enable push notifications if source supports them
+        subscribed_source_state =
+          if prev_lifecycle == :loading and
+               function_exported?(state.source, :subscribe_changes, 1) do
+            case state.source.subscribe_changes(new_source_state) do
+              {:ok, _ref, sub_state} -> sub_state
+              :not_supported -> new_source_state
+            end
+          else
+            new_source_state
+          end
+
         cancel_timer(state.refresh_timer)
         timer = schedule_refresh(meta, state)
 
@@ -247,7 +259,7 @@ defmodule RotatingSecrets.Registry do
           state
           | lifecycle: :valid,
             secret: secret,
-            source_state: new_source_state,
+            source_state: subscribed_source_state,
             refresh_timer: timer,
             backoff_ms: state.base_backoff_ms
         }
@@ -274,6 +286,8 @@ defmodule RotatingSecrets.Registry do
 
   defp classify_error(:enoent), do: :permanent_error
   defp classify_error(:eacces), do: :permanent_error
+  defp classify_error(:not_found), do: :permanent_error
+  defp classify_error(:forbidden), do: :permanent_error
   defp classify_error({:invalid_option, _}), do: :permanent_error
   defp classify_error(_), do: :transient_error
 

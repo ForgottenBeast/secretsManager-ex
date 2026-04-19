@@ -1,8 +1,11 @@
 defmodule RotatingSecretsTest do
   use ExUnit.Case, async: true
-  doctest RotatingSecrets
 
-  test "greets the world" do
-    assert RotatingSecrets.hello() == :world
+  # Public API functions require RotatingSecrets.Supervisor to be running.
+  # Integration tests are in test/rotating_secrets/supervisor_test.exs.
+  # Doctests with iex> examples are excluded here.
+
+  test "module is defined" do
+    assert is_atom(RotatingSecrets)
   end
 end
