@@ -25,7 +25,7 @@ defmodule RotatingSecretsVault.Source.VaultTest do
   defp data_response(conn, material \\ "my-secret", version \\ 1) do
     Req.Test.json(conn, %{
       "data" => %{
-        "data" => material,
+        "data" => %{"value" => material},
         "metadata" => %{"version" => version}
       }
     })
@@ -56,14 +56,14 @@ defmodule RotatingSecretsVault.Source.VaultTest do
       Req.Test.stub(@stub_name, fn conn -> Plug.Conn.send_resp(conn, 404, "") end)
 
       {:ok, state} = KvV2.init(stub_opts())
-      assert {:error, :vault_secret_not_found, _state} = KvV2.load(state)
+      assert {:error, :not_found, _state} = KvV2.load(state)
     end
 
     test "403 on data endpoint returns :vault_auth_error" do
       Req.Test.stub(@stub_name, fn conn -> Plug.Conn.send_resp(conn, 403, "") end)
 
       {:ok, state} = KvV2.init(stub_opts())
-      assert {:error, :vault_auth_error, _state} = KvV2.load(state)
+      assert {:error, :forbidden, _state} = KvV2.load(state)
     end
 
     test "connection error returns {:connection_error, reason}" do
@@ -81,7 +81,7 @@ defmodule RotatingSecretsVault.Source.VaultTest do
       Req.Test.stub(@stub_name, fn conn ->
         Req.Test.json(conn, %{
           "data" => %{
-            "data" => 42,
+            "data" => %{"value" => 42},
             "metadata" => %{"version" => 1}
           }
         })

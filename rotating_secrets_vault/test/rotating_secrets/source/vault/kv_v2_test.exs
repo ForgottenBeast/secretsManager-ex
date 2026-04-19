@@ -22,7 +22,7 @@ defmodule RotatingSecrets.Source.Vault.KvV2Test do
   defp happy_response(conn, material \\ "my-secret", version \\ 1) do
     Req.Test.json(conn, %{
       "data" => %{
-        "data" => material,
+        "data" => %{"value" => material},
         "metadata" => %{"version" => version}
       }
     })
@@ -107,14 +107,14 @@ defmodule RotatingSecrets.Source.Vault.KvV2Test do
       Req.Test.stub(@stub_name, fn conn -> Plug.Conn.send_resp(conn, 403, "") end)
       opts = stub_opts()
       {:ok, state} = KvV2.init(opts)
-      assert {:error, :vault_auth_error, _} = KvV2.load(state)
+      assert {:error, :forbidden, _} = KvV2.load(state)
     end
 
     test "404 returns :vault_secret_not_found" do
       Req.Test.stub(@stub_name, fn conn -> Plug.Conn.send_resp(conn, 404, "") end)
       opts = stub_opts()
       {:ok, state} = KvV2.init(opts)
-      assert {:error, :vault_secret_not_found, _} = KvV2.load(state)
+      assert {:error, :not_found, _} = KvV2.load(state)
     end
 
     test "429 returns :vault_rate_limited" do
