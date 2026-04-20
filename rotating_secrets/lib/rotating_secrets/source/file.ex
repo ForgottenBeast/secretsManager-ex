@@ -1,3 +1,6 @@
+# credo:disable-for-this-file Credo.Check.Refactor.ModuleDependencies
+# Source.File coordinates FileSystem, Logger, Jason (optional), and multiple
+# file/path/format concerns — the dependency count is inherent to its role.
 defmodule RotatingSecrets.Source.File do
   @moduledoc """
   A `RotatingSecrets.Source` that reads secrets from a file on disk.
@@ -36,7 +39,7 @@ defmodule RotatingSecrets.Source.File do
 
   require Logger
 
-  @impl true
+  @impl RotatingSecrets.Source
   def init(opts) do
     path = Keyword.fetch!(opts, :path)
     mode = Keyword.get(opts, :mode, :file_watch)
@@ -49,7 +52,7 @@ defmodule RotatingSecrets.Source.File do
     end
   end
 
-  @impl true
+  @impl RotatingSecrets.Source
   def load(state) do
     case Elixir.File.read(state.path) do
       {:ok, content} ->
@@ -63,7 +66,7 @@ defmodule RotatingSecrets.Source.File do
     end
   end
 
-  @impl true
+  @impl RotatingSecrets.Source
   def subscribe_changes(%{mode: :file_watch} = state) do
     parent_dir = Path.dirname(state.path)
     {:ok, watcher_pid} = FileSystem.start_link(dirs: [parent_dir])
@@ -78,7 +81,7 @@ defmodule RotatingSecrets.Source.File do
     {:ok, ref, %{state | timer_ref: ref}}
   end
 
-  @impl true
+  @impl RotatingSecrets.Source
   def handle_change_notification(
         {:file_event, _pid, {path, events}},
         %{mode: :file_watch} = state
@@ -113,7 +116,7 @@ defmodule RotatingSecrets.Source.File do
 
   def handle_change_notification(_msg, _state), do: :ignored
 
-  @impl true
+  @impl RotatingSecrets.Source
   def terminate(%{watcher_pid: pid}) when is_pid(pid) do
     GenServer.stop(pid)
     :ok
@@ -139,7 +142,16 @@ defmodule RotatingSecrets.Source.File do
   defp validate_format(other), do: {:error, {:invalid_option, {:format, other}}}
 
   defp format_content(content, :raw), do: String.trim_trailing(content)
-  defp format_content(content, :json), do: Jason.decode!(content)
+
+  if Code.ensure_loaded?(Jason) do
+    defp format_content(content, :json), do: Jason.decode!(content)
+  else
+    defp format_content(_content, :json) do
+      raise RuntimeError,
+            "RotatingSecrets.Source.File: format: :json requires the :jason dependency. " <>
+              "Add `{:jason, \"~> 1.0\"}` to your mix.exs deps."
+    end
+  end
 
   defp check_permissions(path) do
     case Elixir.File.stat(path) do

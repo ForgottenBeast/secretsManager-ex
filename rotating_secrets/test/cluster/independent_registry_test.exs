@@ -29,15 +29,15 @@ defmodule RotatingSecrets.Cluster.IndependentRegistryTest do
   test "both nodes independently serve the same value from a shared file source",
        %{nodes: [node_a, node_b]} do
     dir =
-      System.tmp_dir!()
-      |> Path.join("rs_cluster_ind_#{System.unique_integer([:positive])}")
+      Path.join(System.tmp_dir!(), "rs_cluster_ind_#{System.unique_integer([:positive])}")
 
     File.mkdir_p!(dir)
     path = Path.join(dir, "shared.txt")
     File.write!(path, "shared-v1\n")
     on_exit(fn -> File.rm_rf!(dir) end)
 
-    name = :"cluster_independent_#{System.unique_integer([:positive])}"
+    # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
+    name = :"cluster_independent_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
 
     # Register the same secret on each node independently
     {:ok, _} =

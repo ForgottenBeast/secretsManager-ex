@@ -7,9 +7,9 @@ defmodule RotatingSecrets.Cluster.NodedownTest do
 
   use ExUnit.Case, async: false
 
-  @moduletag :cluster
-
   import Mox
+
+  @moduletag :cluster
 
   setup_all do
     {:ok, cluster} = LocalCluster.start_link(1, applications: [])
@@ -39,7 +39,8 @@ defmodule RotatingSecrets.Cluster.NodedownTest do
   end
 
   test "subscriber on remote node removed when node disconnects", %{remote_node: remote_node} do
-    name = :"nodedown_sub_#{System.unique_integer([:positive])}"
+    # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
+    name = :"nodedown_sub_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
 
     {:ok, _pid} =
       RotatingSecrets.register(name,
@@ -99,7 +100,8 @@ defmodule RotatingSecrets.Cluster.NodedownTest do
   end
 
   test "local registry is unaffected by nodedown for local-only subscribers" do
-    name = :"nodedown_local_#{System.unique_integer([:positive])}"
+    # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
+    name = :"nodedown_local_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
 
     {:ok, _} =
       RotatingSecrets.register(name,

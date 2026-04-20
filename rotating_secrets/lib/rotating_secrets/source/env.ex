@@ -29,13 +29,11 @@ defmodule RotatingSecrets.Source.Env do
 
   require Logger
 
-  @impl true
+  @impl RotatingSecrets.Source
   def init(opts) do
     var_name = Keyword.fetch!(opts, :var_name)
 
-    unless is_binary(var_name) do
-      {:error, {:invalid_option, {:var_name, var_name}}}
-    else
+    if is_binary(var_name) do
       secret_name = Keyword.get(opts, :name, __MODULE__)
 
       Telemetry.emit_dev_source_in_use(secret_name, __MODULE__)
@@ -47,10 +45,12 @@ defmodule RotatingSecrets.Source.Env do
       )
 
       {:ok, %{var_name: var_name, name: secret_name}}
+    else
+      {:error, {:invalid_option, {:var_name, var_name}}}
     end
   end
 
-  @impl true
+  @impl RotatingSecrets.Source
   def load(state) do
     case System.fetch_env(state.var_name) do
       {:ok, value} ->

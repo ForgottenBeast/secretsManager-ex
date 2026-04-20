@@ -39,7 +39,8 @@ defmodule RotatingSecrets do
       RotatingSecrets.unsubscribe(:db_password, sub_ref)
   """
 
-  alias RotatingSecrets.{Secret, Supervisor}
+  alias RotatingSecrets.Secret
+  alias RotatingSecrets.Supervisor
 
   @process_registry RotatingSecrets.ProcessRegistry
 

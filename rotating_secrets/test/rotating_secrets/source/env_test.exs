@@ -5,6 +5,7 @@ defmodule RotatingSecrets.Source.EnvTest do
 
   import ExUnit.CaptureLog
 
+  # credo:disable-for-next-line Credo.Check.Readability.AliasAs
   alias RotatingSecrets.Source.Env, as: EnvSource
 
   @var_name "RS_TEST_SECRET_#{System.unique_integer([:positive])}"

@@ -26,15 +26,15 @@ defmodule RotatingSecrets.Cluster.NetsplitTest do
   test "both sides serve last-known-good during partition and recover after healing",
        %{node_a: node_a, node_b: node_b} do
     dir =
-      System.tmp_dir!()
-      |> Path.join("rs_netsplit_#{System.unique_integer([:positive])}")
+      Path.join(System.tmp_dir!(), "rs_netsplit_#{System.unique_integer([:positive])}")
 
     File.mkdir_p!(dir)
     path = Path.join(dir, "secret.txt")
     File.write!(path, "pre-split-value\n")
     on_exit(fn -> File.rm_rf!(dir) end)
 
-    name = :"netsplit_#{System.unique_integer([:positive])}"
+    # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
+    name = :"netsplit_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
 
     for node <- [node_a, node_b] do
       {:ok, _} =
@@ -71,7 +71,12 @@ defmodule RotatingSecrets.Cluster.NetsplitTest do
     Process.sleep(100)
 
     # After healing: both sides still alive and serving valid values
-    assert :rpc.call(node_a, Process, :alive?, [:rpc.call(node_a, RotatingSecrets.Supervisor, :whereis_child, [name])]) != :badrpc
+    assert :rpc.call(
+             node_a,
+             Process,
+             :alive?,
+             [:rpc.call(node_a, RotatingSecrets.Supervisor, :whereis_child, [name])]
+           ) != :badrpc
 
     {:ok, healed_a} = :rpc.call(node_a, RotatingSecrets, :current, [name])
     {:ok, healed_b} = :rpc.call(node_b, RotatingSecrets, :current, [name])
@@ -81,23 +86,26 @@ defmodule RotatingSecrets.Cluster.NetsplitTest do
   end
 
   test "nodedown subscriber cleanup fires during partition", %{node_a: node_a, node_b: node_b} do
-    name = :"netsplit_sub_#{System.unique_integer([:positive])}"
+    # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
+    name = :"netsplit_sub_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
 
     # Register only on node_a
+    dummy_path = Path.join(System.tmp_dir!(), "netsplit_dummy.txt")
+
     {:ok, _} =
       :rpc.call(node_a, RotatingSecrets, :register, [
         name,
         [
           source: RotatingSecrets.Source.File,
           source_opts: [
-            path: System.tmp_dir!() |> Path.join("netsplit_dummy.txt"),
+            path: dummy_path,
             mode: {:interval, 60_000}
           ]
         ]
       ])
 
     # Write the file so load succeeds
-    File.write!(System.tmp_dir!() |> Path.join("netsplit_dummy.txt"), "dummy\n")
+    File.write!(dummy_path, "dummy\n")
 
     # Subscribe a process running on node_b
     remote_pid =

@@ -1,3 +1,6 @@
+# credo:disable-for-this-file Credo.Check.Refactor.ModuleDependencies
+# Registry orchestrates the full secret lifecycle across source, telemetry, subscriber,
+# supervisor, and secret modules — the dependency count is inherent to its role.
 defmodule RotatingSecrets.Registry do
   @moduledoc """
   GenServer managing the lifecycle of a single named secret.
@@ -23,7 +26,8 @@ defmodule RotatingSecrets.Registry do
 
   use GenServer
 
-  alias RotatingSecrets.{Secret, Telemetry}
+  alias RotatingSecrets.Secret
+  alias RotatingSecrets.Telemetry
 
   @default_fallback_ms 60_000
   @default_min_backoff_ms 1_000

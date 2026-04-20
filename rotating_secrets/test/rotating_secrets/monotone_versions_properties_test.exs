@@ -9,7 +9,9 @@ defmodule RotatingSecrets.MonotoneVersionsPropertiesTest do
 
   import Mox
 
-  alias RotatingSecrets.{MockSource, Registry, Secret}
+  alias RotatingSecrets.MockSource
+  alias RotatingSecrets.Registry
+  alias RotatingSecrets.Secret
 
   setup :set_mox_global
   setup :verify_on_exit!
@@ -25,7 +27,8 @@ defmodule RotatingSecrets.MonotoneVersionsPropertiesTest do
             version <- integer(1..9999),
             max_runs: 25
           ) do
-      name = :"prop_versions_#{System.unique_integer([:positive])}"
+      # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
+      name = :"prop_versions_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
       meta = %{version: version}
 
       MockSource
@@ -51,7 +54,8 @@ defmodule RotatingSecrets.MonotoneVersionsPropertiesTest do
   end
 
   test "version is nil when meta has no :version key" do
-    name = :"prop_nil_ver_#{System.unique_integer([:positive])}"
+    # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
+    name = :"prop_nil_ver_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
 
     MockSource
     |> stub(:init, fn _opts -> {:ok, %{}} end)

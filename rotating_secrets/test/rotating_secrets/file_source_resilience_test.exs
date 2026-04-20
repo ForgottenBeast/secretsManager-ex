@@ -6,11 +6,15 @@ defmodule RotatingSecrets.FileSourceResilienceTest do
 
   use ExUnit.Case, async: false
 
-  @moduletag :resilience
-
   import Mox
 
-  alias RotatingSecrets.{MockSource, Registry, Secret, Source.File, Supervisor}
+  alias RotatingSecrets.MockSource
+  alias RotatingSecrets.Registry
+  alias RotatingSecrets.Secret
+  alias RotatingSecrets.Source.File
+  alias RotatingSecrets.Supervisor
+
+  @moduletag :resilience
 
   setup :set_mox_global
   setup :verify_on_exit!
@@ -20,7 +24,7 @@ defmodule RotatingSecrets.FileSourceResilienceTest do
     stub(MockSource, :subscribe_changes, fn _state -> :not_supported end)
     start_supervised!(Supervisor)
 
-    dir = System.tmp_dir!() |> Path.join("rs_resilience_#{System.unique_integer([:positive])}")
+    dir = Path.join(System.tmp_dir!(), "rs_resilience_#{System.unique_integer([:positive])}")
     Elixir.File.mkdir_p!(dir)
     path = Path.join(dir, "secret.txt")
     on_exit(fn -> Elixir.File.rm_rf!(dir) end)
@@ -39,7 +43,8 @@ defmodule RotatingSecrets.FileSourceResilienceTest do
   test "interval-mode registry stays alive after missing-file refresh", %{path: path} do
     Elixir.File.write!(path, "initial-secret\n")
 
-    name = :"file_resilience_#{System.unique_integer([:positive])}"
+    # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
+    name = :"file_resilience_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
 
     {:ok, _pid} =
       RotatingSecrets.register(name,
@@ -71,7 +76,8 @@ defmodule RotatingSecrets.FileSourceResilienceTest do
   test "interval-mode registry recovers after file is restored", %{path: path} do
     Elixir.File.write!(path, "v1\n")
 
-    name = :"file_recovery_#{System.unique_integer([:positive])}"
+    # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
+    name = :"file_recovery_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
 
     {:ok, _pid} =
       RotatingSecrets.register(name,

@@ -9,7 +9,10 @@ defmodule RotatingSecrets.FailSoftPropertiesTest do
 
   import Mox
 
-  alias RotatingSecrets.{Generators, MockSource, Registry, Secret}
+  alias RotatingSecrets.Generators
+  alias RotatingSecrets.MockSource
+  alias RotatingSecrets.Registry
+  alias RotatingSecrets.Secret
 
   setup :set_mox_global
   setup :verify_on_exit!
@@ -26,7 +29,8 @@ defmodule RotatingSecrets.FailSoftPropertiesTest do
             error <- Generators.transient_error(),
             max_runs: 20
           ) do
-      name = :"prop_fail_soft_#{System.unique_integer([:positive])}"
+      # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
+      name = :"prop_fail_soft_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
       calls = :counters.new(1, [:atomics])
 
       MockSource

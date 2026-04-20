@@ -5,10 +5,11 @@ defmodule RotatingSecrets.Source.FileTest do
 
   import ExUnit.CaptureLog
 
+  # credo:disable-for-next-line Credo.Check.Readability.AliasAs
   alias RotatingSecrets.Source.File, as: FileSource
 
   setup do
-    dir = System.tmp_dir!() |> Path.join("rs_file_test_#{System.unique_integer([:positive])}")
+    dir = Path.join(System.tmp_dir!(), "rs_file_test_#{System.unique_integer([:positive])}")
     File.mkdir_p!(dir)
     path = Path.join(dir, "secret.txt")
     on_exit(fn -> File.rm_rf!(dir) end)
@@ -99,6 +100,12 @@ defmodule RotatingSecrets.Source.FileTest do
       {:ok, state} = FileSource.init(path: path, format: :json)
       assert {:ok, %{"token" => "abc123"}, %{}, ^state} = FileSource.load(state)
     end
+
+    test "returns {:error, reason, state} for non-enoent errors", %{dir: dir} do
+      # Point at a directory to trigger {:error, :eisdir}
+      {:ok, state} = FileSource.init(path: dir)
+      assert {:error, :eisdir, ^state} = FileSource.load(state)
+    end
   end
 
   describe "handle_change_notification/2 — :file_watch mode" do
@@ -141,6 +148,32 @@ defmodule RotatingSecrets.Source.FileTest do
     test "returns :ignored for unrelated messages", %{path: path} do
       {:ok, state} = FileSource.init(path: path)
       assert :ignored = FileSource.handle_change_notification(:some_other_msg, state)
+    end
+  end
+
+  describe "subscribe_changes/1 — {:interval, ms} mode" do
+    test "returns {:ok, ref, new_state} with timer_ref set", %{path: path} do
+      File.write!(path, "secret")
+      {:ok, state} = FileSource.init(path: path, mode: {:interval, 60_000})
+
+      assert {:ok, ref, new_state} = FileSource.subscribe_changes(state)
+      assert is_reference(ref)
+      assert is_reference(new_state.timer_ref)
+    end
+  end
+
+  describe "terminate/1" do
+    test "cancels the timer in {:interval, ms} mode", %{path: path} do
+      File.write!(path, "secret")
+      {:ok, state} = FileSource.init(path: path, mode: {:interval, 60_000})
+      {:ok, _ref, sub_state} = FileSource.subscribe_changes(state)
+
+      assert :ok = FileSource.terminate(sub_state)
+    end
+
+    test "returns :ok for state with no watcher or timer", %{path: path} do
+      {:ok, state} = FileSource.init(path: path)
+      assert :ok = FileSource.terminate(state)
     end
   end
 

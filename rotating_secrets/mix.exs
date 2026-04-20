@@ -61,6 +61,7 @@ defmodule RotatingSecrets.MixProject do
       # Runtime
       {:telemetry, "~> 1.0"},
       {:file_system, "~> 1.1", optional: true},
+      {:jason, "~> 1.0", optional: true},
 
       # Dev/test
       {:stream_data, "~> 1.0", only: [:dev, :test]},
@@ -81,7 +82,8 @@ defmodule RotatingSecrets.MixProject do
   defp aliases do
     [
       "quality.check": ["format --check-formatted", "credo --strict", "dialyzer"],
-      test: ["test"]
+      test: ["test"],
+      bench: ["run bench/registry_bench.exs"]
     ]
   end
 

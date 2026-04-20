@@ -8,7 +8,10 @@ defmodule RotatingSecrets.RotationConsistencyPropertiesTest do
 
   import Mox
 
-  alias RotatingSecrets.{Generators, MockSource, Registry, Secret}
+  alias RotatingSecrets.Generators
+  alias RotatingSecrets.MockSource
+  alias RotatingSecrets.Registry
+  alias RotatingSecrets.Secret
 
   setup :set_mox_global
   setup :verify_on_exit!
@@ -25,7 +28,8 @@ defmodule RotatingSecrets.RotationConsistencyPropertiesTest do
             meta <- Generators.meta_map(),
             max_runs: 25
           ) do
-      name = :"prop_consistency_#{System.unique_integer([:positive])}"
+      # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
+      name = :"prop_consistency_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
 
       MockSource
       |> stub(:init, fn _opts -> {:ok, %{}} end)
@@ -50,7 +54,8 @@ defmodule RotatingSecrets.RotationConsistencyPropertiesTest do
             v2 <- Generators.secret_value(),
             max_runs: 20
           ) do
-      name = :"prop_refresh_#{System.unique_integer([:positive])}"
+      # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
+      name = :"prop_refresh_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
       # :counters are shared across processes — safe for GenServer load callbacks
       calls = :counters.new(1, [:atomics])
 

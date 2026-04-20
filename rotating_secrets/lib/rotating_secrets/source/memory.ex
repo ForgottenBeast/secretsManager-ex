@@ -71,7 +71,7 @@ defmodule RotatingSecrets.Source.Memory do
   # Source behaviour
   # ---------------------------------------------------------------------------
 
-  @impl true
+  @impl RotatingSecrets.Source
   def init(opts) do
     name = Keyword.fetch!(opts, :name)
     initial_value = Keyword.fetch!(opts, :initial_value)
@@ -99,14 +99,14 @@ defmodule RotatingSecrets.Source.Memory do
     end
   end
 
-  @impl true
+  @impl RotatingSecrets.Source
   def load(state) do
     agent_name = {:via, Registry, {@process_registry, {__MODULE__, state.name}}}
     value = Agent.get(agent_name, & &1.value)
     {:ok, value, %{}, state}
   end
 
-  @impl true
+  @impl RotatingSecrets.Source
   def subscribe_changes(state) do
     channel_ref = make_ref()
     registry_pid = self()
@@ -120,7 +120,7 @@ defmodule RotatingSecrets.Source.Memory do
     {:ok, channel_ref, %{state | channel_ref: channel_ref}}
   end
 
-  @impl true
+  @impl RotatingSecrets.Source
   def handle_change_notification({channel_ref, :updated}, state)
       when channel_ref == state.channel_ref do
     {:changed, state}
@@ -128,7 +128,7 @@ defmodule RotatingSecrets.Source.Memory do
 
   def handle_change_notification(_msg, _state), do: :ignored
 
-  @impl true
+  @impl RotatingSecrets.Source
   def terminate(state) do
     agent_name = {:via, Registry, {@process_registry, {__MODULE__, state.name}}}
 

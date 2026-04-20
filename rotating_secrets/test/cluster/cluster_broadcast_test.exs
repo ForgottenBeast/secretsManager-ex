@@ -7,11 +7,12 @@ defmodule RotatingSecrets.Cluster.ClusterBroadcastTest do
 
   use ExUnit.Case, async: false
 
-  @moduletag :cluster
-
   import Mox
 
-  alias RotatingSecrets.{MockSource, Registry}
+  alias RotatingSecrets.MockSource
+  alias RotatingSecrets.Registry
+
+  @moduletag :cluster
 
   setup :set_mox_global
   setup :verify_on_exit!
@@ -23,7 +24,8 @@ defmodule RotatingSecrets.Cluster.ClusterBroadcastTest do
   end
 
   test "rotation broadcasts {:rotating_secret_rotated_cluster, node, name, version} via :pg" do
-    name = :"broadcast_#{System.unique_integer([:positive])}"
+    # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
+    name = :"broadcast_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
     calls = :counters.new(1, [:atomics])
     test_pid = self()
 
@@ -59,7 +61,8 @@ defmodule RotatingSecrets.Cluster.ClusterBroadcastTest do
   end
 
   test "broadcast failure is silenced and does not affect local rotation" do
-    name = :"broadcast_safe_#{System.unique_integer([:positive])}"
+    # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
+    name = :"broadcast_safe_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
 
     MockSource
     |> stub(:init, fn _opts -> {:ok, %{}} end)
@@ -90,7 +93,8 @@ defmodule RotatingSecrets.Cluster.ClusterBroadcastTest do
   end
 
   test "broadcast message never carries the secret value" do
-    name = :"broadcast_no_leak_#{System.unique_integer([:positive])}"
+    # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
+    name = :"broadcast_no_leak_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
     test_pid = self()
 
     MockSource

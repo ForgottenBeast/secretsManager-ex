@@ -5,8 +5,10 @@ defmodule RotatingSecrets.Source.MemoryTest do
 
   import Mox
 
+  alias RotatingSecrets.MockSource
+  # credo:disable-for-next-line Credo.Check.Readability.AliasAs
   alias RotatingSecrets.Source.Memory, as: MemorySource
-  alias RotatingSecrets.{MockSource, Supervisor}
+  alias RotatingSecrets.Supervisor
 
   setup :set_mox_global
   setup :verify_on_exit!
@@ -18,7 +20,10 @@ defmodule RotatingSecrets.Source.MemoryTest do
     :ok
   end
 
-  defp unique_name, do: :"memory_test_#{System.unique_integer([:positive])}"
+  defp unique_name do
+    # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
+    :"memory_test_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
+  end
 
   describe "init/1" do
     test "starts an Agent and returns {:ok, state} with name and nil channel_ref" do

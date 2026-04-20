@@ -9,7 +9,9 @@ defmodule RotatingSecrets.SubscriberFanoutPropertiesTest do
 
   import Mox
 
-  alias RotatingSecrets.{Generators, MockSource, Registry}
+  alias RotatingSecrets.Generators
+  alias RotatingSecrets.MockSource
+  alias RotatingSecrets.Registry
 
   setup :set_mox_global
   setup :verify_on_exit!
@@ -25,7 +27,8 @@ defmodule RotatingSecrets.SubscriberFanoutPropertiesTest do
             n <- Generators.subscriber_count(),
             max_runs: 15
           ) do
-      name = :"prop_fanout_#{System.unique_integer([:positive])}"
+      # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
+      name = :"prop_fanout_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
 
       MockSource
       |> stub(:init, fn _opts -> {:ok, %{}} end)

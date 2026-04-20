@@ -8,9 +8,11 @@ defmodule RotatingSecrets.LogCaptureTest do
   import ExUnit.CaptureLog
   import Mox
 
-  require Logger
+  alias RotatingSecrets.MockSource
+  alias RotatingSecrets.Registry
+  alias RotatingSecrets.Supervisor
 
-  alias RotatingSecrets.{MockSource, Registry, Supervisor}
+  require Logger
 
   setup :set_mox_global
   setup :verify_on_exit!
@@ -26,7 +28,8 @@ defmodule RotatingSecrets.LogCaptureTest do
   end
 
   defp start_registry_with_secret do
-    name = :"log_test_#{System.unique_integer([:positive])}"
+    # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
+    name = :"log_test_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
 
     MockSource
     |> stub(:init, fn _opts -> {:ok, %{}} end)
@@ -75,7 +78,7 @@ defmodule RotatingSecrets.LogCaptureTest do
 
     test "Secret.inspect does not include the value" do
       {:ok, secret} = GenServer.call(start_registry_with_secret(), :current)
-      log = capture_log(fn -> Logger.debug(inspect(secret)) end)
+      log = capture_log(fn -> secret |> inspect() |> Logger.debug() end)
       refute log =~ @secret_material
     end
   end

@@ -6,11 +6,13 @@ defmodule RotatingSecrets.SourceResilienceTest do
 
   use ExUnit.Case, async: false
 
-  @moduletag :resilience
-
   import Mox
 
-  alias RotatingSecrets.{MockSource, Registry, Secret}
+  alias RotatingSecrets.MockSource
+  alias RotatingSecrets.Registry
+  alias RotatingSecrets.Secret
+
+  @moduletag :resilience
 
   setup :set_mox_global
   setup :verify_on_exit!
@@ -22,7 +24,8 @@ defmodule RotatingSecrets.SourceResilienceTest do
   end
 
   test "Registry stays alive when source.load raises during refresh" do
-    name = :"source_resilience_raise_#{System.unique_integer([:positive])}"
+    # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
+    name = :"source_resilience_raise_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
     calls = :counters.new(1, [:atomics])
 
     MockSource
@@ -64,7 +67,8 @@ defmodule RotatingSecrets.SourceResilienceTest do
   end
 
   test "Registry stays alive when source.load throws" do
-    name = :"source_resilience_throw_#{System.unique_integer([:positive])}"
+    # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
+    name = :"source_resilience_throw_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
     calls = :counters.new(1, [:atomics])
 
     MockSource
@@ -98,7 +102,8 @@ defmodule RotatingSecrets.SourceResilienceTest do
   end
 
   test "load exception emits [:rotating_secrets, :source, :load, :exception] telemetry" do
-    name = :"source_resilience_telemetry_#{System.unique_integer([:positive])}"
+    # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
+    name = :"source_resilience_telemetry_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
     calls = :counters.new(1, [:atomics])
     test_pid = self()
     handler_id = "resilience-exception-#{System.unique_integer([:positive])}"

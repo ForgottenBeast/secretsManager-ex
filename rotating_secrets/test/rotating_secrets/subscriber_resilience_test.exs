@@ -5,11 +5,12 @@ defmodule RotatingSecrets.SubscriberResilienceTest do
 
   use ExUnit.Case, async: false
 
-  @moduletag :resilience
-
   import Mox
 
-  alias RotatingSecrets.{MockSource, Registry}
+  alias RotatingSecrets.MockSource
+  alias RotatingSecrets.Registry
+
+  @moduletag :resilience
 
   setup :set_mox_global
   setup :verify_on_exit!
@@ -21,7 +22,8 @@ defmodule RotatingSecrets.SubscriberResilienceTest do
   end
 
   test "remaining subscribers receive notification after one subscriber crashes" do
-    name = :"sub_resilience_#{System.unique_integer([:positive])}"
+    # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
+    name = :"sub_resilience_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
     calls = :counters.new(1, [:atomics])
 
     MockSource
@@ -64,7 +66,8 @@ defmodule RotatingSecrets.SubscriberResilienceTest do
   end
 
   test "dead subscriber is removed from state before next rotation" do
-    name = :"sub_cleanup_#{System.unique_integer([:positive])}"
+    # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
+    name = :"sub_cleanup_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
 
     MockSource
     |> stub(:init, fn _opts -> {:ok, %{}} end)

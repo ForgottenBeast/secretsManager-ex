@@ -6,11 +6,12 @@ defmodule RotatingSecrets.Cluster.ClusterStatusTest do
 
   use ExUnit.Case, async: false
 
-  @moduletag :cluster
-
   import Mox
 
-  alias RotatingSecrets.{MockSource, Registry, Secret}
+  alias RotatingSecrets.MockSource
+  alias RotatingSecrets.Registry
+
+  @moduletag :cluster
 
   setup :set_mox_global
   setup :verify_on_exit!
@@ -23,7 +24,8 @@ defmodule RotatingSecrets.Cluster.ClusterStatusTest do
   end
 
   test "cluster_status/1 returns empty map when no other nodes are connected" do
-    name = :"cluster_status_empty_#{System.unique_integer([:positive])}"
+    # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
+    name = :"cluster_status_empty_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
 
     MockSource
     |> stub(:init, fn _opts -> {:ok, %{}} end)
@@ -38,7 +40,8 @@ defmodule RotatingSecrets.Cluster.ClusterStatusTest do
   end
 
   test "cluster_status/1 returns {:error, :noconnection} for unreachable nodes" do
-    name = :"cluster_status_unreachable_#{System.unique_integer([:positive])}"
+    # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
+    name = :"cluster_status_unreachable_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
 
     MockSource
     |> stub(:init, fn _opts -> {:ok, %{}} end)
@@ -50,7 +53,8 @@ defmodule RotatingSecrets.Cluster.ClusterStatusTest do
 
     # Pretend a node is in Node.list() by connecting then immediately disconnecting;
     # use a fake node name that never had a connection to force badrpc/noconnection
-    fake_node = :"fake_node_#{System.unique_integer([:positive])}@127.0.0.1"
+    # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
+    fake_node = :"fake_node_#{System.unique_integer([:positive])}@127.0.0.1"  # unique test atom, not user-controlled
 
     # We can test the error path directly via the module function
     # by observing that an rpc to a non-existent node returns {:badrpc, :nodedown}
@@ -60,7 +64,8 @@ defmodule RotatingSecrets.Cluster.ClusterStatusTest do
   end
 
   test "cluster_status/1 result never contains secret values" do
-    name = :"cluster_status_no_leak_#{System.unique_integer([:positive])}"
+    # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
+    name = :"cluster_status_no_leak_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
 
     MockSource
     |> stub(:init, fn _opts -> {:ok, %{}} end)
@@ -91,7 +96,8 @@ defmodule RotatingSecrets.Cluster.ClusterStatusTest do
   end
 
   test "version_and_meta/1 returns {:ok, version, meta} for a valid local secret" do
-    name = :"version_meta_local_#{System.unique_integer([:positive])}"
+    # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
+    name = :"version_meta_local_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
 
     MockSource
     |> stub(:init, fn _opts -> {:ok, %{}} end)

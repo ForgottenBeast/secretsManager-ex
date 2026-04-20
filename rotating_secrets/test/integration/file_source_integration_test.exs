@@ -6,14 +6,15 @@ defmodule RotatingSecrets.FileSourceIntegrationTest do
 
   use ExUnit.Case, async: false
 
-  alias RotatingSecrets.{Secret, Source.File, Supervisor}
+  alias RotatingSecrets.Secret
+  alias RotatingSecrets.Source.File
+  alias RotatingSecrets.Supervisor
 
   setup do
     start_supervised!(Supervisor)
 
     dir =
-      System.tmp_dir!()
-      |> Path.join("rs_int_#{System.unique_integer([:positive])}")
+      Path.join(System.tmp_dir!(), "rs_int_#{System.unique_integer([:positive])}")
 
     Elixir.File.mkdir_p!(dir)
     path = Path.join(dir, "secret.txt")
@@ -25,7 +26,8 @@ defmodule RotatingSecrets.FileSourceIntegrationTest do
   test "atomic rename is picked up on next interval refresh", %{dir: dir, path: path} do
     Elixir.File.write!(path, "v1\n")
 
-    name = :"file_int_atomic_#{System.unique_integer([:positive])}"
+    # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
+    name = :"file_int_atomic_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
 
     {:ok, _pid} =
       RotatingSecrets.register(name,
@@ -56,7 +58,8 @@ defmodule RotatingSecrets.FileSourceIntegrationTest do
   test "concurrent reads during rotation always return a valid secret", %{path: path} do
     Elixir.File.write!(path, "concurrent-v1\n")
 
-    name = :"file_int_concurrent_#{System.unique_integer([:positive])}"
+    # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
+    name = :"file_int_concurrent_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
 
     {:ok, _pid} =
       RotatingSecrets.register(name,
@@ -99,7 +102,8 @@ defmodule RotatingSecrets.FileSourceIntegrationTest do
        %{path: path} do
     Elixir.File.write!(path, "good-value\n")
 
-    name = :"file_int_lgk_#{System.unique_integer([:positive])}"
+    # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
+    name = :"file_int_lgk_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
 
     {:ok, _pid} =
       RotatingSecrets.register(name,

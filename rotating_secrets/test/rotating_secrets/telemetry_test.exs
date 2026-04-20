@@ -132,6 +132,45 @@ defmodule RotatingSecrets.TelemetryTest do
     end
   end
 
+  describe "emit_load_exception/4" do
+    test "fires [:rotating_secrets, :source, :load, :exception] with kind and reason",
+         %{handler_id: id, test_pid: pid} do
+      attach_listener(id, [:rotating_secrets, :source, :load, :exception], pid)
+      exception = %RuntimeError{message: "boom"}
+      Telemetry.emit_load_exception(:my_secret, MyApp.Source, :error, exception)
+
+      assert_receive {:telemetry, [:rotating_secrets, :source, :load, :exception], %{},
+                      %{name: :my_secret, source: MyApp.Source, kind: :error, reason: ^exception}}
+    end
+
+    test "supports :throw kind", %{handler_id: id, test_pid: pid} do
+      attach_listener(id, [:rotating_secrets, :source, :load, :exception], pid)
+      Telemetry.emit_load_exception(:my_secret, MyApp.Source, :throw, :kaboom)
+
+      assert_receive {:telemetry, [:rotating_secrets, :source, :load, :exception], %{},
+                      %{name: :my_secret, source: MyApp.Source, kind: :throw, reason: :kaboom}}
+    end
+
+    test "supports :exit kind", %{handler_id: id, test_pid: pid} do
+      attach_listener(id, [:rotating_secrets, :source, :load, :exception], pid)
+      Telemetry.emit_load_exception(:my_secret, MyApp.Source, :exit, :shutdown)
+
+      assert_receive {:telemetry, [:rotating_secrets, :source, :load, :exception], %{},
+                      %{name: :my_secret, source: MyApp.Source, kind: :exit, reason: :shutdown}}
+    end
+  end
+
+  describe "handle_default_event/4" do
+    test "logs without raising" do
+      Telemetry.handle_default_event(
+        [:rotating_secrets, :rotation],
+        %{version: 1},
+        %{name: :test_secret},
+        nil
+      )
+    end
+  end
+
   describe "emit_degraded/2" do
     test "fires [:rotating_secrets, :degraded] with reason", %{handler_id: id, test_pid: pid} do
       attach_listener(id, [:rotating_secrets, :degraded], pid)

@@ -5,7 +5,8 @@ defmodule RotatingSecrets.SupervisorTest do
 
   import Mox
 
-  alias RotatingSecrets.{MockSource, Supervisor}
+  alias RotatingSecrets.MockSource
+  alias RotatingSecrets.Supervisor
 
   @material "super-secret"
   @meta %{version: 1}
@@ -39,13 +40,17 @@ defmodule RotatingSecrets.SupervisorTest do
       assert {:ok, pid} = Supervisor.register(:test_secret, source: MockSource)
       assert Process.alive?(pid)
 
-      assert {:ok, secret} = GenServer.call({:via, Registry, {RotatingSecrets.ProcessRegistry, :test_secret}}, :current)
+      assert {:ok, secret} =
+               GenServer.call(
+                 {:via, Registry, {RotatingSecrets.ProcessRegistry, :test_secret}},
+                 :current
+               )
+
       assert RotatingSecrets.Secret.expose(secret) == @material
     end
 
     test "returns {:error, reason} when source.init fails" do
-      MockSource
-      |> stub(:init, fn _opts -> {:error, :bad_config} end)
+      stub(MockSource, :init, fn _opts -> {:error, :bad_config} end)
 
       assert {:error, _} = Supervisor.register(:bad_secret, source: MockSource)
     end
