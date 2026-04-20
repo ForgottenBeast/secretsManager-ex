@@ -15,7 +15,10 @@ defmodule OpenBaoHelper do
     port
   end
 
-  def stop_server!(port), do: Port.close(port)
+  def stop_server!(port) do
+    if Port.info(port) != nil, do: Port.close(port)
+    :ok
+  end
 
   # Poll GET /v1/sys/health until 200 or timeout (10s)
   # Req.get may raise on ECONNREFUSED during startup — rescue to treat as not-yet-ready

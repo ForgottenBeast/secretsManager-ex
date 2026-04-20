@@ -6,6 +6,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/checkout@v4
+        with:
+          repository: urist/secretManager-rs
+          path: secretManager-rs
+          ref: v0.1.0-integration
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.75.0"
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            secretManager-rs/target
+          key: ${{ runner.os }}-rust-${{ hashFiles('secretManager-rs/Cargo.lock') }}
+
+      - name: Build Rust consumer binary
+        run: |
+          cd secretManager-rs
+          cargo build --example http_server --release
+
       - name: Kill any existing bao processes (port conflict guard)
         run: pkill bao || true
 
@@ -53,3 +76,13 @@ jobs:
         env:
           MIX_ENV: test
           OPENBAO_BIN: /usr/local/bin/bao
+
+      - name: Kill bao between test steps
+        run: pkill bao || true
+
+      - name: Run cross-language integration tests
+        run: cd rotating_secrets_vault && mix test --only cross_lang
+        env:
+          MIX_ENV: test
+          OPENBAO_BIN: /usr/local/bin/bao
+          RUST_CONSUMER_BIN: ${{ github.workspace }}/secretManager-rs/target/release/examples/http_server

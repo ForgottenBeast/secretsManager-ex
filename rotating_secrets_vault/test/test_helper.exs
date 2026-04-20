@@ -23,4 +23,18 @@ else
   IO.puts("[OpenBaoHelper] bao binary not found or OPENBAO_SKIP=1 — :openbao tests excluded")
 end
 
+Code.require_file("support/rust_consumer_helper.ex", __DIR__)
+
+rust_available =
+  System.get_env("RUST_CONSUMER_SKIP") != "1" and
+  (fn ->
+    bin = System.get_env("RUST_CONSUMER_BIN", "")
+    bin != "" and File.exists?(bin)
+  end).()
+
+unless rust_available do
+  ExUnit.configure(exclude: (ExUnit.configuration()[:exclude] || []) ++ [:cross_lang])
+  IO.puts("[RustConsumerHelper] Rust binary not found or RUST_CONSUMER_SKIP=1 — :cross_lang tests excluded")
+end
+
 ExUnit.start()
