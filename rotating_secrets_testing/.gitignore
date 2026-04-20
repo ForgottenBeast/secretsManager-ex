@@ -1,0 +1,11 @@
+/_build/
+/cover/
+/deps/
+/doc/
+erl_crash.dump
+*.ez
+rotating_secrets_testing-*.tar
+/tmp/
+/priv/plts/
+/.nix-mix/
+/.nix-hex/
