@@ -77,28 +77,103 @@
           };
 
           # Build documentation
+          # Output layout:
+          #   $out/index.html              — root index linking all sections
+          #   $out/manual/                 — mdBook user manual
+          #   $out/api/rotating_secrets/   — ExDoc for rotating_secrets
+          #   $out/api/vault/              — ExDoc for rotating_secrets_vault
+          #   $out/api/testing/            — ExDoc for rotating_secrets_testing
           docs = pkgs.stdenv.mkDerivation {
-            name = "elixir-app-docs";
+            name = "rotating-secrets-docs";
             src = ./.;
 
             nativeBuildInputs = [
               elixir
               pkgs.git
+              pkgs.mdbook
             ];
 
             buildPhase = ''
               export MIX_HOME="$TMPDIR/.mix"
               export HEX_HOME="$TMPDIR/.hex"
+              export HOME="$TMPDIR"
 
               mix local.hex --force
               mix local.rebar --force
+
+              # ExDoc: rotating_secrets (must build first; others depend on it)
+              cd rotating_secrets
               mix deps.get
               mix docs
+              cd ..
+
+              # ExDoc: rotating_secrets_vault
+              cd rotating_secrets_vault
+              mix deps.get
+              mix docs
+              cd ..
+
+              # ExDoc: rotating_secrets_testing
+              cd rotating_secrets_testing
+              mix deps.get
+              mix docs
+              cd ..
+
+              # User manual
+              mdbook build docs/book
             '';
 
             installPhase = ''
-              mkdir -p $out
-              cp -r doc $out/
+              mkdir -p $out/api/rotating_secrets
+              mkdir -p $out/api/vault
+              mkdir -p $out/api/testing
+              mkdir -p $out/manual
+
+              cp -r rotating_secrets/doc/. $out/api/rotating_secrets/
+              cp -r rotating_secrets_vault/doc/. $out/api/vault/
+              cp -r rotating_secrets_testing/doc/. $out/api/testing/
+              cp -r docs/book/book/. $out/manual/
+
+              cat > $out/index.html << 'INDEXEOF'
+              <!DOCTYPE html>
+              <html lang="en">
+              <head>
+                <meta charset="utf-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1">
+                <title>RotatingSecrets Documentation</title>
+                <style>
+                  body { font-family: sans-serif; max-width: 640px; margin: 4rem auto; padding: 0 1rem; }
+                  h1 { font-size: 1.6rem; margin-bottom: 2rem; }
+                  ul { list-style: none; padding: 0; }
+                  li { margin: 1rem 0; }
+                  a { font-size: 1.1rem; text-decoration: none; color: #2563eb; }
+                  a:hover { text-decoration: underline; }
+                  .subtitle { color: #6b7280; font-size: 0.9rem; margin-top: 0.2rem; }
+                </style>
+              </head>
+              <body>
+                <h1>RotatingSecrets Documentation</h1>
+                <ul>
+                  <li>
+                    <a href="manual/index.html">User Manual</a>
+                    <div class="subtitle">Guides, cookbook, telemetry, clustering, testing, troubleshooting</div>
+                  </li>
+                  <li>
+                    <a href="api/rotating_secrets/index.html">API Reference — rotating_secrets</a>
+                    <div class="subtitle">Core library: sources, registry, secret lifecycle</div>
+                  </li>
+                  <li>
+                    <a href="api/vault/index.html">API Reference — rotating_secrets_vault</a>
+                    <div class="subtitle">OpenBao / Vault KV v2 source</div>
+                  </li>
+                  <li>
+                    <a href="api/testing/index.html">API Reference — rotating_secrets_testing</a>
+                    <div class="subtitle">Controllable source and ExUnit helpers</div>
+                  </li>
+                </ul>
+              </body>
+              </html>
+              INDEXEOF
             '';
           };
 

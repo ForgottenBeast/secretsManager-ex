@@ -93,12 +93,12 @@ defmodule RotatingSecrets.Telemetry do
   # at the call site rather than via runtime assertion.
   # ---------------------------------------------------------------------------
 
-  @doc false
+  @doc "Emits the `[:rotating_secrets, :source, :load, :start]` event for `name` and `source`."
   def emit_load_start(name, source) when is_atom(name) and is_atom(source) do
     :telemetry.execute(@load_start, %{}, %{name: name, source: source})
   end
 
-  @doc false
+  @doc "Emits the `[:rotating_secrets, :source, :load, :stop]` event with `:ok` or `{:error, reason}` result."
   def emit_load_stop(name, source, :ok) when is_atom(name) and is_atom(source) do
     :telemetry.execute(@load_stop, %{}, %{name: name, source: source, result: :ok})
   end
@@ -107,7 +107,7 @@ defmodule RotatingSecrets.Telemetry do
     :telemetry.execute(@load_stop, %{}, %{name: name, source: source, result: :error, reason: reason})
   end
 
-  @doc false
+  @doc "Emits the `[:rotating_secrets, :source, :load, :exception]` event with the exception `kind` and `reason`."
   def emit_load_exception(name, source, kind, reason)
       when is_atom(name) and is_atom(source) and kind in [:throw, :error, :exit] do
     :telemetry.execute(@load_exception, %{}, %{
@@ -118,32 +118,32 @@ defmodule RotatingSecrets.Telemetry do
     })
   end
 
-  @doc false
+  @doc "Emits the `[:rotating_secrets, :rotation]` event with the new `version` for `name`."
   def emit_rotation(name, version) when is_atom(name) do
     :telemetry.execute(@rotation, %{version: version}, %{name: name})
   end
 
-  @doc false
+  @doc "Emits the `[:rotating_secrets, :state_change]` event recording the lifecycle transition from `from` to `to`."
   def emit_state_change(name, from, to) when is_atom(name) and is_atom(from) and is_atom(to) do
     :telemetry.execute(@state_change, %{}, %{name: name, from: from, to: to})
   end
 
-  @doc false
+  @doc "Emits the `[:rotating_secrets, :subscriber_added]` event when a new subscriber is registered for `name`."
   def emit_subscriber_added(name) when is_atom(name) do
     :telemetry.execute(@subscriber_added, %{}, %{name: name})
   end
 
-  @doc false
+  @doc "Emits the `[:rotating_secrets, :subscriber_removed]` event when a subscriber is removed from `name`, with the removal `reason`."
   def emit_subscriber_removed(name, reason) when is_atom(name) do
     :telemetry.execute(@subscriber_removed, %{}, %{name: name, reason: reason})
   end
 
-  @doc false
+  @doc "Emits the `[:rotating_secrets, :degraded]` event when the secret for `name` enters a degraded state."
   def emit_degraded(name, reason) when is_atom(name) do
     :telemetry.execute(@degraded, %{}, %{name: name, reason: reason})
   end
 
-  @doc false
+  @doc "Emits the `[:rotating_secrets, :dev_source_in_use]` event warning that a development-only source is active for `name`."
   def emit_dev_source_in_use(name, source) when is_atom(name) and is_atom(source) do
     :telemetry.execute(@dev_source_in_use, %{}, %{name: name, source: source})
   end

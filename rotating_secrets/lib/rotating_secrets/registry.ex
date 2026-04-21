@@ -56,6 +56,13 @@ defmodule RotatingSecrets.Registry do
   # Start
   # ---------------------------------------------------------------------------
 
+  @doc """
+  Starts the `RotatingSecrets.Registry` GenServer for a single named secret.
+
+  `opts` must include `:name` (the secret atom) and `:source` (a module
+  implementing `RotatingSecrets.Source`). Typically called by
+  `RotatingSecrets.Supervisor.register/2` via the `DynamicSupervisor`.
+  """
   @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts) do
     name = Keyword.fetch!(opts, :name)

@@ -44,6 +44,15 @@ defmodule RotatingSecrets.Testing do
   is received within `timeout` milliseconds.
 
   `sub_ref` is the reference returned by `RotatingSecrets.subscribe/1`.
+
+  ## Examples
+
+      {:ok, sub_ref} = RotatingSecrets.subscribe(:api_key)
+      RotatingSecrets.Source.Controllable.rotate(:api_key, "new-value")
+      assert_rotated(:api_key, sub_ref)
+
+      # With a custom timeout (milliseconds):
+      assert_rotated(:api_key, sub_ref, 1_000)
   """
   defmacro assert_rotated(name, sub_ref, timeout \\ @default_timeout_ms) do
     quote do
@@ -58,6 +67,15 @@ defmodule RotatingSecrets.Testing do
   @doc """
   Asserts that no `{:rotating_secret_rotated, sub_ref, name, _version}` message
   is received within `timeout` milliseconds.
+
+  ## Examples
+
+      {:ok, sub_ref} = RotatingSecrets.subscribe(:api_key)
+      # Expect no rotation to arrive:
+      refute_rotated(:api_key, sub_ref)
+
+      # With a custom timeout (milliseconds):
+      refute_rotated(:api_key, sub_ref, 200)
   """
   defmacro refute_rotated(name, sub_ref, timeout \\ @default_refute_timeout_ms) do
     quote do
@@ -77,6 +95,15 @@ defmodule RotatingSecrets.Testing do
   is detached after the assertion regardless of outcome.
 
   `event_name` is a list of atoms, e.g. `[:rotating_secrets, :rotation]`.
+
+  This function is provisional; the full API will be defined in the rotating_secrets_testing PRD.
+
+  ## Examples
+
+      assert_telemetry_event([:rotating_secrets, :rotation])
+
+      # With a custom timeout (milliseconds):
+      assert_telemetry_event([:rotating_secrets, :rotation], 1_000)
   """
   @spec assert_telemetry_event(
           event_name :: [atom()],

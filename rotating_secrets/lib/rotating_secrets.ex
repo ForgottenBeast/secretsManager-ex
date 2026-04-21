@@ -75,8 +75,13 @@ defmodule RotatingSecrets do
 
   ## Examples
 
-      RotatingSecrets.with_secret(:db_password, fn secret ->
-        connect(RotatingSecrets.Secret.expose(secret))
+      {:ok, _pid} = RotatingSecrets.register(:db_password,
+        source: RotatingSecrets.Source.Env,
+        source_opts: [var_name: "DB_PASSWORD"]
+      )
+
+      {:ok, result} = RotatingSecrets.with_secret(:db_password, fn secret ->
+        RotatingSecrets.Secret.expose(secret)
       end)
   """
   @spec with_secret(name :: atom(), (Secret.t() -> result)) ::
@@ -102,6 +107,17 @@ defmodule RotatingSecrets do
   the secret value.
 
   Call `unsubscribe/2` with `name` and `sub_ref` to cancel the subscription.
+
+  ## Examples
+
+      {:ok, _pid} = RotatingSecrets.register(:db_password,
+        source: RotatingSecrets.Source.Env,
+        source_opts: [var_name: "DB_PASSWORD"]
+      )
+
+      {:ok, sub_ref} = RotatingSecrets.subscribe(:db_password)
+      is_reference(sub_ref)
+      #=> true
   """
   @spec subscribe(name :: atom()) :: {:ok, reference()} | {:error, term()}
   def subscribe(name) when is_atom(name) do
@@ -112,6 +128,16 @@ defmodule RotatingSecrets do
   Cancels the subscription identified by `sub_ref` for secret `name`.
 
   Always returns `:ok`, even if the subscription does not exist.
+
+  ## Examples
+
+      {:ok, _pid} = RotatingSecrets.register(:db_password,
+        source: RotatingSecrets.Source.Env,
+        source_opts: [var_name: "DB_PASSWORD"]
+      )
+
+      {:ok, sub_ref} = RotatingSecrets.subscribe(:db_password)
+      :ok = RotatingSecrets.unsubscribe(:db_password, sub_ref)
   """
   @spec unsubscribe(name :: atom(), sub_ref :: reference()) :: :ok
   def unsubscribe(name, sub_ref) when is_atom(name) and is_reference(sub_ref) do

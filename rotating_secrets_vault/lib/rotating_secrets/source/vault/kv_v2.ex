@@ -19,8 +19,26 @@ defmodule RotatingSecrets.Source.Vault.KvV2 do
 
   alias RotatingSecrets.Source.Vault.HTTP
 
-  @impl RotatingSecrets.Source
+  @doc """
+  Validates required options and builds the initial request configuration.
+
+  Returns `{:ok, state}` on success, or `{:error, {:invalid_option, key}}` when
+  a required option is missing or has an invalid type.
+
+  ## Examples
+
+      RotatingSecrets.register(:db_password,
+        source: RotatingSecrets.Source.Vault.KvV2,
+        source_opts: [
+          address: "http://127.0.0.1:8200",
+          mount: "secret",
+          path: "myapp/db",
+          token: "dev-root-token"
+        ]
+      )
+  """
   @spec init(keyword()) :: {:ok, map()} | {:error, term()}
+  @impl RotatingSecrets.Source
   def init(opts) do
     with {:ok, address} <- fetch_required_string(opts, :address),
          {:ok, mount} <- fetch_required_string(opts, :mount),
@@ -40,8 +58,15 @@ defmodule RotatingSecrets.Source.Vault.KvV2 do
     end
   end
 
-  @impl RotatingSecrets.Source
+  @doc """
+  Fetches the current secret value from the Vault KV v2 endpoint.
+
+  Returns `{:ok, value, meta, state}` on success, where `meta` contains
+  `:version`, `:content_hash`, and optionally `:ttl_seconds`. Returns
+  `{:error, reason, state}` on failure.
+  """
   @spec load(map()) :: {:ok, binary(), map(), map()} | {:error, atom(), map()}
+  @impl RotatingSecrets.Source
   def load(state) do
     url_path = "/v1/#{state.mount}/data/#{state.path}"
 
@@ -89,12 +114,31 @@ defmodule RotatingSecrets.Source.Vault.KvV2 do
     end
   end
 
+  @doc """
+  Vault KV v2 does not support push-based change notifications.
+
+  Always returns `:not_supported`; the registry will fall back to polling.
+  """
+  @spec subscribe_changes(map()) :: :not_supported
   @impl RotatingSecrets.Source
   def subscribe_changes(_state), do: :not_supported
 
+  @doc """
+  Ignores all incoming change notification messages.
+
+  Because `subscribe_changes/1` returns `:not_supported`, this callback
+  should never be invoked in practice.
+  """
+  @spec handle_change_notification(term(), map()) :: :ignored
   @impl RotatingSecrets.Source
   def handle_change_notification(_msg, _state), do: :ignored
 
+  @doc """
+  Cleans up any resources held by this source.
+
+  This source holds no external connections or processes, so this is a no-op.
+  """
+  @spec terminate(map()) :: :ok
   @impl RotatingSecrets.Source
   def terminate(_state), do: :ok
 

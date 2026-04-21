@@ -1,0 +1,10 @@
+[book]
+title = "RotatingSecrets User Manual"
+authors = ["urist"]
+language = "en"
+multilingual = false
+src = "src"
+
+[output.html]
+site-url = "/manual/"
+git-repository-url = "https://github.com/TODO/rotating_secrets"

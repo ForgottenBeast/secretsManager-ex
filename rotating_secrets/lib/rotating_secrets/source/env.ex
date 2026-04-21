@@ -29,6 +29,10 @@ defmodule RotatingSecrets.Source.Env do
 
   require Logger
 
+  @doc """
+  Validates the `:var_name` option, emits a dev-source telemetry event,
+  and logs a warning that this source is not recommended for production.
+  """
   @impl RotatingSecrets.Source
   def init(opts) do
     var_name = Keyword.fetch!(opts, :var_name)
@@ -50,6 +54,10 @@ defmodule RotatingSecrets.Source.Env do
     end
   end
 
+  @doc """
+  Reads the environment variable named in `state.var_name`.
+  Returns `{:ok, value, %{}, state}` if set, or `{:error, :enoent, state}` if unset.
+  """
   @impl RotatingSecrets.Source
   def load(state) do
     case System.fetch_env(state.var_name) do

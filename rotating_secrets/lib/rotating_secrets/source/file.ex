@@ -39,6 +39,10 @@ defmodule RotatingSecrets.Source.File do
 
   require Logger
 
+  @doc """
+  Initialises the file source state, validates `:path`, `:mode`, and `:format` options,
+  and emits a Logger warning if the file has unsafe permissions.
+  """
   @impl RotatingSecrets.Source
   def init(opts) do
     path = Keyword.fetch!(opts, :path)
@@ -52,6 +56,10 @@ defmodule RotatingSecrets.Source.File do
     end
   end
 
+  @doc """
+  Reads the secret from the file at `state.path`, applying the configured `:format`.
+  Returns `{:ok, material, meta, state}` on success or `{:error, reason, state}` on failure.
+  """
   @impl RotatingSecrets.Source
   def load(state) do
     case Elixir.File.read(state.path) do
@@ -66,6 +74,11 @@ defmodule RotatingSecrets.Source.File do
     end
   end
 
+  @doc """
+  Starts watching for changes according to the configured `:mode`.
+  In `:file_watch` mode, watches the parent directory for filesystem events.
+  In `{:interval, ms}` mode, schedules a periodic timer message.
+  """
   @impl RotatingSecrets.Source
   def subscribe_changes(%{mode: :file_watch} = state) do
     parent_dir = Path.dirname(state.path)
@@ -81,6 +94,10 @@ defmodule RotatingSecrets.Source.File do
     {:ok, ref, %{state | timer_ref: ref}}
   end
 
+  @doc """
+  Processes filesystem or timer messages and returns `{:changed, state}` when the
+  watched file is modified, or `:ignored` for unrelated messages.
+  """
   @impl RotatingSecrets.Source
   def handle_change_notification(
         {:file_event, _pid, {path, events}},
@@ -116,6 +133,10 @@ defmodule RotatingSecrets.Source.File do
 
   def handle_change_notification(_msg, _state), do: :ignored
 
+  @doc """
+  Cleans up resources: stops the `FileSystem` watcher process if active,
+  or cancels the interval timer. Returns `:ok`.
+  """
   @impl RotatingSecrets.Source
   def terminate(%{watcher_pid: pid}) when is_pid(pid) do
     GenServer.stop(pid)

@@ -71,6 +71,10 @@ defmodule RotatingSecrets.Source.Memory do
   # Source behaviour
   # ---------------------------------------------------------------------------
 
+  @doc """
+  Starts a named `Agent` to hold the in-memory secret value and subscription state.
+  Resets the agent if one already exists for `name`.
+  """
   @impl RotatingSecrets.Source
   def init(opts) do
     name = Keyword.fetch!(opts, :name)
@@ -99,6 +103,10 @@ defmodule RotatingSecrets.Source.Memory do
     end
   end
 
+  @doc """
+  Reads the current value from the backing `Agent`.
+  Always succeeds; returns `{:ok, value, %{}, state}`.
+  """
   @impl RotatingSecrets.Source
   def load(state) do
     agent_name = {:via, Registry, {@process_registry, {__MODULE__, state.name}}}
@@ -106,6 +114,10 @@ defmodule RotatingSecrets.Source.Memory do
     {:ok, value, %{}, state}
   end
 
+  @doc """
+  Records the channel reference and Registry PID in the `Agent` so that `update/2`
+  can send change notifications to the correct process.
+  """
   @impl RotatingSecrets.Source
   def subscribe_changes(state) do
     channel_ref = make_ref()
@@ -120,6 +132,10 @@ defmodule RotatingSecrets.Source.Memory do
     {:ok, channel_ref, %{state | channel_ref: channel_ref}}
   end
 
+  @doc """
+  Returns `{:changed, state}` when the message matches the registered channel reference,
+  indicating that `update/2` has stored a new value. Returns `:ignored` otherwise.
+  """
   @impl RotatingSecrets.Source
   def handle_change_notification({channel_ref, :updated}, state)
       when channel_ref == state.channel_ref do
@@ -128,6 +144,10 @@ defmodule RotatingSecrets.Source.Memory do
 
   def handle_change_notification(_msg, _state), do: :ignored
 
+  @doc """
+  Stops the backing `Agent` for `state.name`, cleaning up registry entries.
+  Returns `:ok`.
+  """
   @impl RotatingSecrets.Source
   def terminate(state) do
     agent_name = {:via, Registry, {@process_registry, {__MODULE__, state.name}}}

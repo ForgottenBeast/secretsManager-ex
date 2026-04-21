@@ -79,6 +79,13 @@ defmodule RotatingSecrets.Source.Controllable do
   # Source behaviour
   # ---------------------------------------------------------------------------
 
+  @doc """
+  Starts an in-memory Agent to hold the secret's initial value.
+
+  Returns `{:ok, state}` on success, or `{:error, reason}` if the Agent
+  cannot be started. Re-registers cleanly when the Agent is already running.
+  """
+  @spec init(keyword()) :: {:ok, map()} | {:error, term()}
   @impl RotatingSecrets.Source
   def init(opts) do
     name = Keyword.fetch!(opts, :name)
@@ -106,6 +113,13 @@ defmodule RotatingSecrets.Source.Controllable do
     end
   end
 
+  @doc """
+  Reads the current in-memory value from the Agent.
+
+  Always returns `{:ok, value, %{}, state}` because the controllable source
+  holds its value in a local Agent and never fails to load.
+  """
+  @spec load(map()) :: {:ok, binary(), map(), map()}
   @impl RotatingSecrets.Source
   def load(%{name: name} = state) do
     agent_name = {:via, Registry, {@registry, {__MODULE__, name}}}
@@ -113,6 +127,13 @@ defmodule RotatingSecrets.Source.Controllable do
     {:ok, value, %{}, state}
   end
 
+  @doc """
+  Registers the current process to receive rotation notifications via the Agent.
+
+  Stores a unique `channel_ref` and the calling PID inside the Agent so that
+  `rotate/2` can deliver the notification message directly.
+  """
+  @spec subscribe_changes(map()) :: {:ok, reference(), map()}
   @impl RotatingSecrets.Source
   def subscribe_changes(state) do
     channel_ref = make_ref()
@@ -127,6 +148,13 @@ defmodule RotatingSecrets.Source.Controllable do
     {:ok, channel_ref, %{state | channel_ref: channel_ref}}
   end
 
+  @doc """
+  Handles an in-process rotation notification sent by `rotate/2`.
+
+  Returns `{:changed, state}` when the `channel_ref` in the message matches
+  the one stored in state; ignores all other messages.
+  """
+  @spec handle_change_notification(term(), map()) :: {:changed, map()} | :ignored
   @impl RotatingSecrets.Source
   def handle_change_notification({channel_ref, :rotated}, state)
       when channel_ref == state.channel_ref do
@@ -135,6 +163,13 @@ defmodule RotatingSecrets.Source.Controllable do
 
   def handle_change_notification(_msg, _state), do: :ignored
 
+  @doc """
+  Stops the Agent that holds this secret's in-memory value.
+
+  Swallows exit signals so that termination is always clean even when the
+  Agent has already stopped.
+  """
+  @spec terminate(map()) :: :ok
   @impl RotatingSecrets.Source
   def terminate(%{name: name} = _state) do
     agent_name = {:via, Registry, {@registry, {__MODULE__, name}}}
