@@ -25,6 +25,17 @@ defmodule RotatingSecrets.Source.Vault.HTTP do
     end
   end
 
+  @spec put(Req.Request.t(), String.t(), map()) :: {:ok, map()} | {:error, atom()}
+  def put(base_req, path, body) do
+    try do
+      base_req
+      |> Req.put(url: path, json: body)
+      |> normalise_response()
+    rescue
+      e in Req.TransportError -> normalise_response({:error, e})
+    end
+  end
+
   @spec normalise_response({:ok, Req.Response.t()} | {:error, Exception.t()}) ::
           {:ok, map()} | {:error, atom()}
   def normalise_response({:ok, %Req.Response{status: 200, body: body}}), do: {:ok, body}

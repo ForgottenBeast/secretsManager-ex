@@ -95,4 +95,45 @@ defmodule RotatingSecrets.Source.Vault.HTTPTest do
       assert {:error, :vault_secret_not_found} = HTTP.get(base_req(), "/v1/secret/data/missing")
     end
   end
+
+  describe "put/3 via Req.Test plug" do
+    test "200 with JSON body returns {:ok, body}" do
+      Req.Test.stub(@stub_name, fn conn ->
+        Req.Test.json(conn, %{"lease_id" => "abc123"})
+      end)
+
+      assert {:ok, %{"lease_id" => "abc123"}} =
+               HTTP.put(base_req(), "/v1/secret/data/test", %{"data" => %{"value" => "s3cr3t"}})
+    end
+
+    test "403 returns :vault_auth_error" do
+      Req.Test.stub(@stub_name, fn conn -> Plug.Conn.send_resp(conn, 403, "") end)
+
+      assert {:error, :vault_auth_error} =
+               HTTP.put(base_req(), "/v1/secret/data/test", %{})
+    end
+
+    test "404 returns :vault_secret_not_found" do
+      Req.Test.stub(@stub_name, fn conn -> Plug.Conn.send_resp(conn, 404, "") end)
+
+      assert {:error, :vault_secret_not_found} =
+               HTTP.put(base_req(), "/v1/secret/data/missing", %{})
+    end
+
+    test "500 returns :vault_server_error" do
+      Req.Test.stub(@stub_name, fn conn -> Plug.Conn.send_resp(conn, 500, "") end)
+
+      assert {:error, :vault_server_error} =
+               HTTP.put(base_req(), "/v1/secret/data/test", %{})
+    end
+
+    test "transport error returns :vault_connection_refused" do
+      Req.Test.stub(@stub_name, fn _conn ->
+        raise Req.TransportError, reason: :econnrefused
+      end)
+
+      assert {:error, :vault_connection_refused} =
+               HTTP.put(base_req(), "/v1/secret/data/test", %{})
+    end
+  end
 end

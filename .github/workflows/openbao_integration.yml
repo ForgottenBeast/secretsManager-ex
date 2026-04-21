@@ -86,3 +86,97 @@ jobs:
           MIX_ENV: test
           OPENBAO_BIN: /usr/local/bin/bao
           RUST_CONSUMER_BIN: ${{ github.workspace }}/secretManager-rs/target/release/examples/http_server
+
+  openbao-database-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: urist/secretManager-rs
+          path: secretManager-rs
+          ref: v0.1.0-integration
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.75.0"
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            secretManager-rs/target
+          key: ${{ runner.os }}-rust-${{ hashFiles('secretManager-rs/Cargo.lock') }}
+
+      - name: Build Rust consumer binary
+        run: |
+          cd secretManager-rs
+          cargo build --example http_server --release
+
+      - name: Kill any existing bao processes (port conflict guard)
+        run: pkill bao || true
+
+      - name: Install OpenBao
+        run: |
+          # Verify the exact asset filename at https://github.com/openbao/openbao/releases
+          # before changing BAO_VERSION — asset naming changes between releases.
+          BAO_VERSION=2.5.2
+          curl -fsSL \
+            "https://github.com/openbao/openbao/releases/download/v${BAO_VERSION}/bao_${BAO_VERSION}_Linux_x86_64.tar.gz" \
+            -o bao.tar.gz
+          tar -xzf bao.tar.gz bao
+          mv bao /usr/local/bin/bao
+          chmod +x /usr/local/bin/bao
+          bao version
+
+      - uses: erlef/setup-beam@v1
+        with:
+          elixir-version: '1.18'
+          otp-version: '27'
+
+      - name: Cache deps
+        uses: actions/cache@v4
+        with:
+          path: |
+            rotating_secrets/deps
+            rotating_secrets_vault/deps
+          key: ${{ runner.os }}-openbao-deps-${{ hashFiles('rotating_secrets_vault/mix.lock') }}
+
+      - name: Install deps
+        run: |
+          cd rotating_secrets && mix deps.get
+          cd ../rotating_secrets_vault && mix deps.get
+
+      - name: Run Dynamic OpenBao integration tests
+        run: cd rotating_secrets_vault && mix test --only openbao_db
+        env:
+          MIX_ENV: test
+          OPENBAO_BIN: /usr/local/bin/bao
+          PG_AVAILABLE: "1"
+
+      - name: Kill bao between test steps
+        run: pkill bao || true
+
+      - name: Run Dynamic cross-language tests
+        run: cd rotating_secrets_vault && mix test --only cross_lang_db
+        env:
+          MIX_ENV: test
+          OPENBAO_BIN: /usr/local/bin/bao
+          RUST_CONSUMER_BIN: ${{ github.workspace }}/secretManager-rs/target/release/examples/http_server
+          PG_AVAILABLE: "1"

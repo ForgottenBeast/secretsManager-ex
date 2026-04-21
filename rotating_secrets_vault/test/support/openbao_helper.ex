@@ -63,6 +63,61 @@ defmodule OpenBaoHelper do
     :ok
   end
 
+  def setup_pki_engine!(mount \\ "pki") do
+    client = build_client()
+    Req.post!(client, url: "/v1/sys/mounts/#{mount}", json: %{"type" => "pki"})
+    Req.post!(client, url: "/v1/#{mount}/root/generate/internal",
+              json: %{"common_name" => "Test Root CA", "ttl" => "87600h"})
+    Req.post!(client, url: "/v1/#{mount}/roles/test-role",
+              json: %{
+                "allowed_domains" => ["example.com"],
+                "allow_subdomains" => true,
+                "max_ttl" => "72h",
+                "generate_lease" => true
+              })
+    :ok
+  end
+
+  def teardown_pki_engine!(mount \\ "pki") do
+    build_client() |> Req.delete!(url: "/v1/sys/mounts/#{mount}")
+    :ok
+  end
+
+  def setup_database_engine!(pg_url, mount \\ "database", role \\ "test-role") do
+    client = build_client()
+    Req.post!(client, url: "/v1/sys/mounts/#{mount}", json: %{"type" => "database"})
+    Req.post!(client, url: "/v1/#{mount}/config/test-postgres",
+              json: %{
+                "plugin_name" => "postgresql-database-plugin",
+                "connection_url" => pg_url,
+                "allowed_roles" => [role],
+                "username" => "postgres",
+                "password" => "postgres"
+              })
+    Req.post!(client, url: "/v1/#{mount}/roles/#{role}",
+              json: %{
+                "db_name" => "test-postgres",
+                "creation_statements" => [
+                  "CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}';"
+                ],
+                "default_ttl" => "30s",
+                "max_ttl" => "2m"
+              })
+    :ok
+  end
+
+  def teardown_database_engine!(mount \\ "database") do
+    build_client() |> Req.delete!(url: "/v1/sys/mounts/#{mount}")
+    :ok
+  end
+
+  def pg_connection_url do
+    host = System.get_env("PG_HOST", "localhost")
+    port = System.get_env("PG_PORT", "5432")
+    db   = System.get_env("PG_DB", "postgres")
+    "postgresql://{{username}}:{{password}}@#{host}:#{port}/#{db}"
+  end
+
   def base_url, do: @base_url
   def root_token, do: @root_token
 

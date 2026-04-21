@@ -19,7 +19,7 @@ if openbao_available do
     end
   end)
 else
-  ExUnit.configure(exclude: [:openbao])
+  ExUnit.configure(exclude: (ExUnit.configuration()[:exclude] || []) ++ [:openbao])
   IO.puts("[OpenBaoHelper] bao binary not found or OPENBAO_SKIP=1 — :openbao tests excluded")
 end
 
@@ -35,6 +35,13 @@ rust_available =
 unless rust_available do
   ExUnit.configure(exclude: (ExUnit.configuration()[:exclude] || []) ++ [:cross_lang])
   IO.puts("[RustConsumerHelper] Rust binary not found or RUST_CONSUMER_SKIP=1 — :cross_lang tests excluded")
+end
+
+pg_available = System.get_env("PG_AVAILABLE") == "1"
+
+unless pg_available do
+  ExUnit.configure(exclude: (ExUnit.configuration()[:exclude] || []) ++ [:openbao_db, :cross_lang_db])
+  IO.puts("[test_helper] PostgreSQL not available — :openbao_db and :cross_lang_db tests excluded")
 end
 
 ExUnit.start()

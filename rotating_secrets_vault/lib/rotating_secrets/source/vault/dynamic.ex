@@ -2,7 +2,7 @@ defmodule RotatingSecrets.Source.Vault.Dynamic do
   @moduledoc """
   Vault dynamic secrets source for `RotatingSecrets`.
 
-  Reads dynamic secrets (database, AWS, PKI, etc.) from `GET /v1/{mount}/creds/{path}`.
+  Reads dynamic secrets (database, AWS, etc.) from `GET /v1/{mount}/creds/{path}`.
 
   ## Options
 
@@ -28,32 +28,45 @@ defmodule RotatingSecrets.Source.Vault.Dynamic do
          {:ok, path} <- fetch_required_string(opts, :path),
          {:ok, token} <- fetch_required_string(opts, :token),
          :ok <- validate_namespace(Keyword.get(opts, :namespace)) do
-      {:ok,
-       %{
-         address: address,
-         mount: mount,
-         path: path,
-         token: token,
-         key: Keyword.get(opts, :key),
-         namespace: Keyword.get(opts, :namespace),
-         req_options: Keyword.get(opts, :req_options, [])
-       }}
+      state = %{
+        address: address,
+        mount: mount,
+        path: path,
+        token: token,
+        key: Keyword.get(opts, :key),
+        namespace: Keyword.get(opts, :namespace),
+        req_options: Keyword.get(opts, :req_options, []),
+        lease_id: nil,
+        current_material: nil
+      }
+
+      {:ok, Map.put(state, :base_req, HTTP.base_request(Map.to_list(state)))}
     end
   end
 
   @impl RotatingSecrets.Source
   @spec load(map()) :: {:ok, binary(), map(), map()} | {:error, atom(), map()}
   def load(state) do
-    url_path = "/v1/#{state.mount}/creds/#{state.path}"
+    if state.lease_id != nil do
+      renew_req = Req.merge(state.base_req, receive_timeout: 5000)
 
-    case state |> Map.to_list() |> HTTP.base_request() |> HTTP.get(url_path) do
-      {:ok, body} ->
-        material = extract_material(body, state.key)
-        meta = build_meta(body)
-        {:ok, material, meta, state}
+      case HTTP.put(renew_req, "/v1/sys/leases/renew", %{"lease_id" => state.lease_id}) do
+        {:ok, renewal_body} ->
+          new_ttl = renewal_body["lease_duration"]
+          new_meta = %{
+            version: nil,
+            lease_id: state.lease_id,
+            lease_duration_ms: new_ttl * 1_000,
+            ttl_seconds: new_ttl
+          }
 
-      {:error, reason} ->
-        {:error, reason, state}
+          {:ok, state.current_material, new_meta, state}
+
+        {:error, _} ->
+          fetch_new_credentials(state)
+      end
+    else
+      fetch_new_credentials(state)
     end
   end
 
@@ -64,7 +77,33 @@ defmodule RotatingSecrets.Source.Vault.Dynamic do
   def handle_change_notification(_msg, _state), do: :ignored
 
   @impl RotatingSecrets.Source
-  def terminate(_state), do: :ok
+  def terminate(state) do
+    if state.lease_id do
+      try do
+        req = Req.merge(state.base_req, receive_timeout: 2000)
+        HTTP.put(req, "/v1/sys/leases/revoke", %{"lease_id" => state.lease_id})
+      catch
+        _, _ -> :ok
+      end
+    end
+
+    :ok
+  end
+
+  defp fetch_new_credentials(state) do
+    url_path = "/v1/#{state.mount}/creds/#{state.path}"
+
+    case HTTP.get(state.base_req, url_path) do
+      {:ok, body} ->
+        material = extract_material(body, state.key)
+        meta = build_meta(body)
+        new_state = %{state | lease_id: body["lease_id"], current_material: material}
+        {:ok, material, meta, new_state}
+
+      {:error, reason} ->
+        {:error, reason, state}
+    end
+  end
 
   defp extract_material(body, nil), do: Jason.encode!(body["data"])
   defp extract_material(body, key), do: get_in(body, ["data", key])
@@ -76,13 +115,18 @@ defmodule RotatingSecrets.Source.Vault.Dynamic do
     %{version: nil}
     |> maybe_add_lease_id(lease_id)
     |> maybe_add_lease_duration(lease_duration)
+    |> maybe_add_ttl_seconds(lease_duration)
   end
 
   defp maybe_add_lease_id(meta, nil), do: meta
+  defp maybe_add_lease_id(meta, ""), do: meta
   defp maybe_add_lease_id(meta, lease_id), do: Map.put(meta, :lease_id, lease_id)
 
   defp maybe_add_lease_duration(meta, 0), do: meta
   defp maybe_add_lease_duration(meta, duration), do: Map.put(meta, :lease_duration_ms, duration * 1_000)
+
+  defp maybe_add_ttl_seconds(meta, 0), do: meta
+  defp maybe_add_ttl_seconds(meta, duration), do: Map.put(meta, :ttl_seconds, duration)
 
   defp fetch_required_string(opts, key) do
     case Keyword.fetch(opts, key) do
