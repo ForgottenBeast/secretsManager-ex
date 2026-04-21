@@ -104,7 +104,7 @@ defmodule RotatingSecrets.Source.Vault.PKI do
   def terminate(state) do
     if state.revoke_on_terminate && state.serial_number do
       try do
-        req = Req.update(state.base_req, receive_timeout: 2000)
+        req = Req.merge(state.base_req, receive_timeout: 2000)
         HTTP.put(req, "/v1/#{state.mount}/revoke", %{"serial_number" => state.serial_number})
       catch
         _, _ -> :ok
