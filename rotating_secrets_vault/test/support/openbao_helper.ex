@@ -83,6 +83,24 @@ defmodule OpenBaoHelper do
     :ok
   end
 
+  def setup_transit_engine!(mount \\ "transit") do
+    client = build_client()
+    Req.post!(client, url: "/v1/sys/mounts/#{mount}", json: %{"type" => "transit"})
+    Req.post!(client, url: "/v1/#{mount}/keys/test-key", json: %{"type" => "aes256-gcm96"})
+    :ok
+  end
+
+  def teardown_transit_engine!(mount \\ "transit") do
+    build_client() |> Req.delete!(url: "/v1/sys/mounts/#{mount}")
+    :ok
+  end
+
+  def rotate_transit_key!(mount, name) do
+    # Transit rotation returns HTTP 204 No Content — use raw Req.post!, NOT HTTP module
+    Req.post!(build_client(), url: "/v1/#{mount}/keys/#{name}/rotate", json: %{})
+    :ok
+  end
+
   def setup_database_engine!(pg_url, mount \\ "database", role \\ "test-role") do
     client = build_client()
     Req.post!(client, url: "/v1/sys/mounts/#{mount}", json: %{"type" => "database"})

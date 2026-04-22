@@ -18,6 +18,7 @@ defmodule RotatingSecrets.Source.Vault.KvV2 do
   @behaviour RotatingSecrets.Source
 
   alias RotatingSecrets.Source.Vault.HTTP
+  import RotatingSecrets.Source.Vault.Opts, only: [fetch_required_string: 2, validate_namespace: 1]
 
   @doc """
   Validates required options and builds the initial request configuration.
@@ -141,17 +142,6 @@ defmodule RotatingSecrets.Source.Vault.KvV2 do
   @spec terminate(map()) :: :ok
   @impl RotatingSecrets.Source
   def terminate(_state), do: :ok
-
-  defp fetch_required_string(opts, key) do
-    case Keyword.fetch(opts, key) do
-      {:ok, value} when is_binary(value) and byte_size(value) > 0 -> {:ok, value}
-      _ -> {:error, {:invalid_option, key}}
-    end
-  end
-
-  defp validate_namespace(nil), do: :ok
-  defp validate_namespace(ns) when is_binary(ns) and byte_size(ns) > 0, do: :ok
-  defp validate_namespace(_), do: {:error, {:invalid_option, :namespace}}
 
   defp parse_ttl(s) when is_binary(s) do
     case Integer.parse(s) do
