@@ -104,7 +104,7 @@ defmodule RotatingSecrets.Telemetry do
   end
 
   def emit_load_stop(name, source, {:error, reason}) when is_atom(name) and is_atom(source) do
-    :telemetry.execute(@load_stop, %{}, %{name: name, source: source, result: :error, reason: reason})
+    :telemetry.execute(@load_stop, %{}, %{name: name, source: source, result: :error, reason: sanitize_for_telemetry(reason)})
   end
 
   @doc "Emits the `[:rotating_secrets, :source, :load, :exception]` event with the exception `kind` and `reason`."
@@ -114,7 +114,7 @@ defmodule RotatingSecrets.Telemetry do
       name: name,
       source: source,
       kind: kind,
-      reason: reason
+      reason: sanitize_for_telemetry(reason)
     })
   end
 
@@ -147,4 +147,9 @@ defmodule RotatingSecrets.Telemetry do
   def emit_dev_source_in_use(name, source) when is_atom(name) and is_atom(source) do
     :telemetry.execute(@dev_source_in_use, %{}, %{name: name, source: source})
   end
+
+  defp sanitize_for_telemetry(reason) when is_exception(reason) do
+    {reason.__struct__, Exception.message(reason)}
+  end
+  defp sanitize_for_telemetry(reason), do: reason
 end

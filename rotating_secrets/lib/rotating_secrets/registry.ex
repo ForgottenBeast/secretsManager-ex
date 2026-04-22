@@ -303,7 +303,7 @@ defmodule RotatingSecrets.Registry do
       {:error, reason} ->
         :logger.warning(
           ~c"RotatingSecrets.Registry: source notification error",
-          %{name: state.name, reason: inspect(reason)}
+          %{name: state.name, reason: format_reason(reason)}
         )
 
         {:noreply, state}
@@ -403,6 +403,10 @@ defmodule RotatingSecrets.Registry do
     next_backoff = min(state.backoff_ms * 2, state.max_backoff_ms)
     %{state | refresh_timer: timer, backoff_ms: next_backoff}
   end
+
+  defp format_reason(reason) when is_atom(reason), do: inspect(reason)
+  defp format_reason({a, b}) when is_atom(a) and is_atom(b), do: inspect({a, b})
+  defp format_reason(_), do: "(non-loggable term)"
 
   defp cancel_timer(nil), do: :ok
   defp cancel_timer(ref) when is_reference(ref), do: Process.cancel_timer(ref)

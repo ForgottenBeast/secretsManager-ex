@@ -133,14 +133,14 @@ defmodule RotatingSecrets.TelemetryTest do
   end
 
   describe "emit_load_exception/4" do
-    test "fires [:rotating_secrets, :source, :load, :exception] with kind and reason",
+    test "fires [:rotating_secrets, :source, :load, :exception] with kind and sanitized reason",
          %{handler_id: id, test_pid: pid} do
       attach_listener(id, [:rotating_secrets, :source, :load, :exception], pid)
       exception = %RuntimeError{message: "boom"}
       Telemetry.emit_load_exception(:my_secret, MyApp.Source, :error, exception)
 
       assert_receive {:telemetry, [:rotating_secrets, :source, :load, :exception], %{},
-                      %{name: :my_secret, source: MyApp.Source, kind: :error, reason: ^exception}}
+                      %{name: :my_secret, source: MyApp.Source, kind: :error, reason: {RuntimeError, "boom"}}}
     end
 
     test "supports :throw kind", %{handler_id: id, test_pid: pid} do
