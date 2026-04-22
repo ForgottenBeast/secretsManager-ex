@@ -93,6 +93,10 @@ defmodule RotatingSecrets.Registry do
   @impl GenServer
   def init(opts) do
     Process.flag(:sensitive, true)
+    # trap_exit ensures GenServer.terminate/2 is invoked when the supervisor
+    # sends exit(Pid, :shutdown), allowing source.terminate/1 to run cleanup
+    # (e.g. revoking Vault leases) before the process exits.
+    Process.flag(:trap_exit, true)
     :net_kernel.monitor_nodes(true)
 
     name = Keyword.fetch!(opts, :name)
