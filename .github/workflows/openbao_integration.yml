@@ -97,6 +97,7 @@ jobs:
         run: pkill bao || true
 
       - name: Run cross-language integration tests
+        if: steps.build-rust.outcome == 'success'
         run: cd rotating_secrets_vault && mix test --only cross_lang
         env:
           MIX_ENV: test
@@ -203,6 +204,7 @@ jobs:
         run: pkill bao || true
 
       - name: Run Dynamic cross-language tests
+        if: steps.build-rust.outcome == 'success'
         run: cd rotating_secrets_vault && mix test --only cross_lang_db
         env:
           MIX_ENV: test
