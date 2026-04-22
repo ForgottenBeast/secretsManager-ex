@@ -66,13 +66,13 @@ EOF
 
   # Write final pg_hba.conf BEFORE starting the server:
   #   local connections  → trust  (used by psql to set the password below)
-  #   TCP connections    → md5    (used by OpenBao database plugin with password)
+  #   TCP connections    → md5    (all users; OpenBao admin + dynamically issued roles)
   cat > "$PGDATA/pg_hba.conf" <<EOF
 # TYPE  DATABASE  USER      ADDRESS         METHOD
 # Unix socket — trust; used only during local setup
 local   all       postgres                  trust
-# TCP/IP — md5; OpenBao connects here with username/password
-host    all       postgres  127.0.0.1/32    md5
+# TCP/IP — md5; all users so dynamically-issued Vault roles can authenticate
+host    all       all       127.0.0.1/32    md5
 EOF
 
   # Start server and wait for it to be ready (-w = synchronous)
