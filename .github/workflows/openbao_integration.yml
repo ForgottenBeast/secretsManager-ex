@@ -8,7 +8,7 @@ jobs:
 
       # The Rust consumer repo may not be accessible (private or missing tag).
       # continue-on-error lets the job proceed; cross_lang tests self-exclude
-      # when RUST_CONSUMER_BIN points to a non-existent binary.
+      # when RUST_CONSUMER_BIN is absent.
       - uses: actions/checkout@v4
         id: checkout-rust
         continue-on-error: true
@@ -32,10 +32,18 @@ jobs:
           key: ${{ runner.os }}-rust-${{ hashFiles('secretManager-rs/Cargo.lock') }}
 
       - name: Build Rust consumer binary
+        id: build-rust
         if: steps.checkout-rust.outcome == 'success'
+        continue-on-error: true
         run: |
           cd secretManager-rs
           cargo build --example http_server --release
+
+      # Only export RUST_CONSUMER_BIN when the binary was actually built.
+      # test_helper.exs excludes :cross_lang tests when the var is absent.
+      - name: Export RUST_CONSUMER_BIN
+        if: steps.build-rust.outcome == 'success'
+        run: echo "RUST_CONSUMER_BIN=$GITHUB_WORKSPACE/secretManager-rs/target/release/examples/http_server" >> "$GITHUB_ENV"
 
       - name: Kill any existing bao processes (port conflict guard)
         run: pkill bao || true
@@ -93,7 +101,6 @@ jobs:
         env:
           MIX_ENV: test
           OPENBAO_BIN: /usr/local/bin/bao
-          RUST_CONSUMER_BIN: ${{ github.workspace }}/secretManager-rs/target/release/examples/http_server
 
   openbao-database-integration:
     runs-on: ubuntu-latest
@@ -137,10 +144,16 @@ jobs:
           key: ${{ runner.os }}-rust-${{ hashFiles('secretManager-rs/Cargo.lock') }}
 
       - name: Build Rust consumer binary
+        id: build-rust
         if: steps.checkout-rust.outcome == 'success'
+        continue-on-error: true
         run: |
           cd secretManager-rs
           cargo build --example http_server --release
+
+      - name: Export RUST_CONSUMER_BIN
+        if: steps.build-rust.outcome == 'success'
+        run: echo "RUST_CONSUMER_BIN=$GITHUB_WORKSPACE/secretManager-rs/target/release/examples/http_server" >> "$GITHUB_ENV"
 
       - name: Kill any existing bao processes (port conflict guard)
         run: pkill bao || true
@@ -194,7 +207,6 @@ jobs:
         env:
           MIX_ENV: test
           OPENBAO_BIN: /usr/local/bin/bao
-          RUST_CONSUMER_BIN: ${{ github.workspace }}/secretManager-rs/target/release/examples/http_server
           PG_AVAILABLE: "1"
           PG_HOST: 127.0.0.1
           PG_PORT: "5432"
