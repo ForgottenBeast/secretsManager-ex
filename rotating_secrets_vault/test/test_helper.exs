@@ -37,6 +37,12 @@ unless rust_available do
   IO.puts("[RustConsumerHelper] Rust binary not found or RUST_CONSUMER_SKIP=1 — :cross_lang tests excluded")
 end
 
+# To run :openbao_db tests locally (requires nix develop):
+#   ./scripts/run_db_tests.sh
+# For :cross_lang_db tests too (also requires RUST_CONSUMER_BIN):
+#   RUST_CONSUMER_BIN=/path/to/http_server ./scripts/run_db_tests.sh
+# Or, if PostgreSQL is already running:
+#   PG_AVAILABLE=1 mix test.db
 pg_available = System.get_env("PG_AVAILABLE") == "1"
 
 unless pg_available do

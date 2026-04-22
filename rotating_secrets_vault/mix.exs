@@ -46,7 +46,11 @@ defmodule RotatingSecretsVault.MixProject do
 
   defp aliases do
     [
-      "quality.check": ["format --check-formatted", "credo --strict", "dialyzer"]
+      "quality.check": ["format --check-formatted", "credo --strict", "dialyzer"],
+      # Run OpenBao dynamic-secrets DB integration tests.
+      # Requires a running PostgreSQL instance and PG_AVAILABLE=1.
+      # Use scripts/run_db_tests.sh to start an ephemeral instance automatically.
+      "test.db": ["test --only openbao_db"]
     ]
   end
 end

@@ -214,8 +214,11 @@
             elixir-ls # Language server for IDE support
             git
 
+            # Database clients
+            postgresql # provides pg_ctl, initdb, pg_isready for local ephemeral DB tests
+            openbao    # provides bao binary; test_helper.exs finds it via System.find_executable/1
+
             # Database clients (optional, uncomment if needed)
-            # postgresql
             # sqlite
 
             # Additional tools
