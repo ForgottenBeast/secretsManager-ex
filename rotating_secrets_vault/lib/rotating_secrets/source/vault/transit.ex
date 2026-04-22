@@ -24,7 +24,8 @@ defmodule RotatingSecrets.Source.Vault.Transit do
   @behaviour RotatingSecrets.Source
 
   alias RotatingSecrets.Source.Vault.HTTP
-  import RotatingSecrets.Source.Vault.Opts, only: [fetch_required_string: 2, validate_namespace: 1]
+  import RotatingSecrets.Source.Vault.Opts,
+    only: [fetch_required_string: 2, validate_namespace: 1, validate_path: 1]
 
   @impl RotatingSecrets.Source
   @spec init(keyword()) :: {:ok, map()} | {:error, term()}
@@ -33,7 +34,9 @@ defmodule RotatingSecrets.Source.Vault.Transit do
          {:ok, mount}   <- fetch_required_string(opts, :mount),
          {:ok, name}    <- fetch_required_string(opts, :name),
          {:ok, token}   <- fetch_required_string(opts, :token),
-         :ok            <- validate_namespace(Keyword.get(opts, :namespace)) do
+         :ok            <- validate_namespace(Keyword.get(opts, :namespace)),
+         :ok            <- (case validate_path(mount) do :ok -> :ok; _ -> {:error, {:invalid_option, :mount}} end),
+         :ok            <- (case validate_path(name) do :ok -> :ok; _ -> {:error, {:invalid_option, :name}} end) do
       state = %{
         address:     address,
         mount:       mount,

@@ -46,6 +46,38 @@ defmodule RotatingSecrets.Source.Vault.KvV1Test do
     end
   end
 
+  describe "init/1 input validation" do
+    test "rejects path-traversal mount" do
+      opts = Keyword.put(@valid_opts, :mount, "../sys")
+      assert {:error, {:invalid_option, :mount}} = KvV1.init(opts)
+    end
+
+    test "rejects null-byte in mount" do
+      opts = Keyword.put(@valid_opts, :mount, "a\0b")
+      assert {:error, {:invalid_option, :mount}} = KvV1.init(opts)
+    end
+
+    test "accepts mount with dots" do
+      opts = Keyword.put(@valid_opts, :mount, "my.app")
+      assert {:ok, _state} = KvV1.init(opts)
+    end
+
+    test "rejects CRLF injection in namespace" do
+      opts = Keyword.put(@valid_opts, :namespace, "ns\r\nX-Evil: h")
+      assert {:error, {:invalid_option, :namespace}} = KvV1.init(opts)
+    end
+
+    test "rejects path-traversal in path" do
+      opts = Keyword.put(@valid_opts, :path, "../../../etc/passwd")
+      assert {:error, {:invalid_option, :path}} = KvV1.init(opts)
+    end
+
+    test "accepts nested path" do
+      opts = Keyword.put(@valid_opts, :path, "secret/data/nested")
+      assert {:ok, _state} = KvV1.init(opts)
+    end
+  end
+
   describe "load/1 - happy path" do
     test "extracts body[data][key] as material, version is nil" do
       Req.Test.stub(@stub_name, fn conn -> kv_response(conn, "password", "s3cret") end)

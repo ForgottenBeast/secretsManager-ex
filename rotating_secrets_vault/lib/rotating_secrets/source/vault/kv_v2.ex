@@ -18,7 +18,8 @@ defmodule RotatingSecrets.Source.Vault.KvV2 do
   @behaviour RotatingSecrets.Source
 
   alias RotatingSecrets.Source.Vault.HTTP
-  import RotatingSecrets.Source.Vault.Opts, only: [fetch_required_string: 2, validate_namespace: 1]
+  import RotatingSecrets.Source.Vault.Opts,
+    only: [fetch_required_string: 2, validate_namespace: 1, validate_path: 1]
 
   @doc """
   Validates required options and builds the initial request configuration.
@@ -34,7 +35,7 @@ defmodule RotatingSecrets.Source.Vault.KvV2 do
           address: "http://127.0.0.1:8200",
           mount: "secret",
           path: "myapp/db",
-          token: "dev-root-token"
+          token: System.fetch_env!("VAULT_TOKEN")
         ]
       )
   """
@@ -45,17 +46,19 @@ defmodule RotatingSecrets.Source.Vault.KvV2 do
          {:ok, mount} <- fetch_required_string(opts, :mount),
          {:ok, path} <- fetch_required_string(opts, :path),
          {:ok, token} <- fetch_required_string(opts, :token),
-         :ok <- validate_namespace(Keyword.get(opts, :namespace)) do
-      {:ok,
-       %{
-         address: address,
-         mount: mount,
-         path: path,
-         token: token,
-         key: Keyword.get(opts, :key, "value"),
-         namespace: Keyword.get(opts, :namespace),
-         req_options: Keyword.get(opts, :req_options, [])
-       }}
+         :ok <- validate_namespace(Keyword.get(opts, :namespace)),
+         :ok <- (case validate_path(mount) do :ok -> :ok; _ -> {:error, {:invalid_option, :mount}} end),
+         :ok <- (case validate_path(path) do :ok -> :ok; _ -> {:error, {:invalid_option, :path}} end) do
+      state = %{
+        address: address,
+        mount: mount,
+        path: path,
+        token: token,
+        key: Keyword.get(opts, :key, "value"),
+        namespace: Keyword.get(opts, :namespace),
+        req_options: Keyword.get(opts, :req_options, [])
+      }
+      {:ok, Map.put(state, :base_req, HTTP.base_request(Map.to_list(state)))}
     end
   end
 
@@ -71,7 +74,7 @@ defmodule RotatingSecrets.Source.Vault.KvV2 do
   def load(state) do
     url_path = "/v1/#{state.mount}/data/#{state.path}"
 
-    case state |> Map.to_list() |> HTTP.base_request() |> HTTP.get(url_path) do
+    case HTTP.get(state.base_req, url_path) do
       {:ok, body} ->
         material = get_in(body, ["data", "data", state.key])
         version = get_in(body, ["data", "metadata", "version"])

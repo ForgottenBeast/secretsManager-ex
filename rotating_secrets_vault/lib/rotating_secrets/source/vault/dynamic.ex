@@ -14,12 +14,19 @@ defmodule RotatingSecrets.Source.Vault.Dynamic do
       when absent the full `data` object is JSON-encoded as material.
     * `:namespace` — Vault Enterprise namespace (non-empty binary). Optional.
     * `:req_options` — keyword list merged into `Req.new/1`. For test injection only.
+
+  ## Lease revocation
+
+  `terminate/1` revokes the active lease on shutdown. This is best-effort only:
+  if the OTP process is killed with `:kill`, `terminate/1` does not run.
+  Configure Vault's `default_lease_ttl` and `max_lease_ttl` as server-side safety nets.
   """
 
   @behaviour RotatingSecrets.Source
 
   alias RotatingSecrets.Source.Vault.HTTP
-  import RotatingSecrets.Source.Vault.Opts, only: [fetch_required_string: 2, validate_namespace: 1]
+  import RotatingSecrets.Source.Vault.Opts,
+    only: [fetch_required_string: 2, validate_namespace: 1, validate_path: 1]
 
   @impl RotatingSecrets.Source
   @spec init(keyword()) :: {:ok, map()} | {:error, term()}
@@ -28,7 +35,9 @@ defmodule RotatingSecrets.Source.Vault.Dynamic do
          {:ok, mount} <- fetch_required_string(opts, :mount),
          {:ok, path} <- fetch_required_string(opts, :path),
          {:ok, token} <- fetch_required_string(opts, :token),
-         :ok <- validate_namespace(Keyword.get(opts, :namespace)) do
+         :ok <- validate_namespace(Keyword.get(opts, :namespace)),
+         :ok <- (case validate_path(mount) do :ok -> :ok; _ -> {:error, {:invalid_option, :mount}} end),
+         :ok <- (case validate_path(path) do :ok -> :ok; _ -> {:error, {:invalid_option, :path}} end) do
       state = %{
         address: address,
         mount: mount,
@@ -98,6 +107,7 @@ defmodule RotatingSecrets.Source.Vault.Dynamic do
       {:ok, body} ->
         material = extract_material(body, state.key)
         meta = build_meta(body)
+        # current_material cached here for lease renewal (dynamic.ex load/1 renewal path); protected by Process.flag(:sensitive, true) set in Registry
         new_state = %{state | lease_id: body["lease_id"], current_material: material}
         {:ok, material, meta, new_state}
 

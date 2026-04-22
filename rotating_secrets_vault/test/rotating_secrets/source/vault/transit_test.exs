@@ -66,6 +66,33 @@ defmodule RotatingSecrets.Source.Vault.TransitTest do
     end
   end
 
+  describe "init/1 input validation" do
+    test "rejects path-traversal mount" do
+      opts = Keyword.put(@valid_opts, :mount, "../sys")
+      assert {:error, {:invalid_option, :mount}} = Transit.init(opts)
+    end
+
+    test "rejects null-byte in mount" do
+      opts = Keyword.put(@valid_opts, :mount, "a\0b")
+      assert {:error, {:invalid_option, :mount}} = Transit.init(opts)
+    end
+
+    test "accepts mount with dots" do
+      opts = Keyword.put(@valid_opts, :mount, "my.app")
+      assert {:ok, _state} = Transit.init(stub_opts(opts))
+    end
+
+    test "rejects CRLF injection in namespace" do
+      opts = Keyword.put(@valid_opts, :namespace, "ns\r\nX-Evil: h")
+      assert {:error, {:invalid_option, :namespace}} = Transit.init(opts)
+    end
+
+    test "rejects path-traversal in name" do
+      opts = Keyword.put(@valid_opts, :name, "../admin-key")
+      assert {:error, {:invalid_option, :name}} = Transit.init(opts)
+    end
+  end
+
   # ---------------------------------------------------------------------------
   # load/1 - success
   # ---------------------------------------------------------------------------

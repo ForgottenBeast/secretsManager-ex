@@ -55,6 +55,38 @@ defmodule RotatingSecrets.Source.Vault.DynamicTest do
     end
   end
 
+  describe "init/1 input validation" do
+    test "rejects path-traversal mount" do
+      opts = Keyword.put(@valid_opts, :mount, "../sys")
+      assert {:error, {:invalid_option, :mount}} = Dynamic.init(opts)
+    end
+
+    test "rejects null-byte in mount" do
+      opts = Keyword.put(@valid_opts, :mount, "a\0b")
+      assert {:error, {:invalid_option, :mount}} = Dynamic.init(opts)
+    end
+
+    test "accepts mount with dots" do
+      opts = Keyword.put(@valid_opts, :mount, "my.app")
+      assert {:ok, _state} = Dynamic.init(opts)
+    end
+
+    test "rejects CRLF injection in namespace" do
+      opts = Keyword.put(@valid_opts, :namespace, "ns\r\nX-Evil: h")
+      assert {:error, {:invalid_option, :namespace}} = Dynamic.init(opts)
+    end
+
+    test "rejects path-traversal in path" do
+      opts = Keyword.put(@valid_opts, :path, "../../../etc/passwd")
+      assert {:error, {:invalid_option, :path}} = Dynamic.init(opts)
+    end
+
+    test "accepts nested path" do
+      opts = Keyword.put(@valid_opts, :path, "secret/data/nested")
+      assert {:ok, _state} = Dynamic.init(opts)
+    end
+  end
+
   describe "load/1 - material extraction" do
     test "extracts body[data][key] when :key given" do
       data = %{"username" => "db_user_abc", "password" => "pass123"}

@@ -1,5 +1,10 @@
 defmodule RotatingSecrets.Source.Vault.HTTP do
-  @moduledoc false
+  @moduledoc """
+  Internal HTTP client for Vault API requests.
+
+  Mint (the underlying HTTP client) defaults to `verify: :verify_peer` for TLS connections,
+  providing certificate validation out of the box.
+  """
 
   @spec base_request(keyword()) :: Req.Request.t()
   def base_request(opts) do
@@ -8,10 +13,9 @@ defmodule RotatingSecrets.Source.Vault.HTTP do
     namespace = Keyword.get(opts, :namespace)
     req_options = Keyword.get(opts, :req_options, [])
 
-    base_opts =
-      [base_url: address, retry: false, headers: build_headers(token, namespace)] ++ req_options
+    base_opts = [base_url: address, retry: false, headers: build_headers(token, namespace)]
 
-    Req.new(base_opts)
+    Req.new(req_options) |> Req.merge(base_opts)
   end
 
   @spec get(Req.Request.t(), String.t()) :: {:ok, map()} | {:error, atom()}

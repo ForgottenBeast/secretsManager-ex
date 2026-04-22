@@ -3,6 +3,8 @@ defmodule RotatingSecrets.Source.Vault.PKITest do
 
   use ExUnit.Case, async: true
 
+  import ExUnit.CaptureLog
+
   alias RotatingSecrets.Source.Vault.PKI
 
   @stub_name :pki_test
@@ -108,6 +110,33 @@ defmodule RotatingSecrets.Source.Vault.PKITest do
     test "error for invalid :namespace (empty string)" do
       opts = Keyword.put(@valid_opts, :namespace, "")
       assert {:error, {:invalid_option, :namespace}} = PKI.init(opts)
+    end
+  end
+
+  describe "init/1 input validation" do
+    test "rejects path-traversal mount" do
+      opts = Keyword.put(@valid_opts, :mount, "../sys")
+      assert {:error, {:invalid_option, :mount}} = PKI.init(opts)
+    end
+
+    test "rejects null-byte in mount" do
+      opts = Keyword.put(@valid_opts, :mount, "a\0b")
+      assert {:error, {:invalid_option, :mount}} = PKI.init(opts)
+    end
+
+    test "accepts mount with dots" do
+      opts = Keyword.put(@valid_opts, :mount, "my.app")
+      assert {:ok, _state} = PKI.init(opts)
+    end
+
+    test "rejects CRLF injection in namespace" do
+      opts = Keyword.put(@valid_opts, :namespace, "ns\r\nX-Evil: h")
+      assert {:error, {:invalid_option, :namespace}} = PKI.init(opts)
+    end
+
+    test "rejects path-traversal in role" do
+      opts = Keyword.put(@valid_opts, :role, "../admin")
+      assert {:error, {:invalid_option, :role}} = PKI.init(opts)
     end
   end
 
@@ -269,6 +298,35 @@ defmodule RotatingSecrets.Source.Vault.PKITest do
       state = %{state | serial_number: "01:02:03"}
 
       assert :ok = PKI.terminate(state)
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # M3 — SAN extraction logging (rescue clause)
+  # ---------------------------------------------------------------------------
+
+  describe "M3 — extract_sans failure logging" do
+    setup do
+      cert_pem = make_cert_pem()
+      %{cert_pem: cert_pem}
+    end
+
+    test "normal cert load does not log 'SAN extraction failed'", %{cert_pem: cert_pem} do
+      Req.Test.stub(@stub_name, fn conn -> pki_issue_response(conn, cert_pem) end)
+
+      {:ok, state} = PKI.init(stub_opts())
+
+      log = capture_log(fn -> PKI.load(state) end)
+      refute log =~ "SAN extraction failed"
+    end
+
+    test "meta.sans is always a list after successful load", %{cert_pem: cert_pem} do
+      Req.Test.stub(@stub_name, fn conn -> pki_issue_response(conn, cert_pem) end)
+
+      {:ok, state} = PKI.init(stub_opts())
+      {:ok, _material, meta, _new_state} = PKI.load(state)
+
+      assert is_list(meta.sans)
     end
   end
 end

@@ -96,6 +96,37 @@ defmodule RotatingSecrets.Source.Vault.HTTPTest do
     end
   end
 
+  describe "base_request/1 — req_options header precedence (M2)" do
+    test "custom header in req_options is present alongside auth headers" do
+      req =
+        HTTP.base_request(
+          address: "http://127.0.0.1:8200",
+          token: "s.token",
+          req_options: [headers: [{"x-custom", "v"}]]
+        )
+
+      header_names = Enum.map(req.headers, fn {k, _} -> k end)
+      assert "x-custom" in header_names
+      assert "x-vault-token" in header_names
+    end
+
+    test "req_options cannot override x-vault-token" do
+      req =
+        HTTP.base_request(
+          address: "http://127.0.0.1:8200",
+          token: "real-token",
+          req_options: [headers: [{"x-vault-token", "override-attempt"}]]
+        )
+
+      token_values =
+        req.headers
+        |> Enum.filter(fn {k, _} -> k == "x-vault-token" end)
+        |> Enum.flat_map(fn {_, v} -> List.wrap(v) end)
+
+      assert token_values == ["real-token"]
+    end
+  end
+
   describe "put/3 via Req.Test plug" do
     test "200 with JSON body returns {:ok, body}" do
       Req.Test.stub(@stub_name, fn conn ->

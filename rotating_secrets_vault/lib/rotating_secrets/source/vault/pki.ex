@@ -20,12 +20,21 @@ defmodule RotatingSecrets.Source.Vault.PKI do
     * `:namespace` — Vault Enterprise namespace (non-empty binary). Optional.
     * `:revoke_on_terminate` — revoke certificate on Registry shutdown. Default `false`.
     * `:req_options` — keyword list merged into `Req.new/1`. For test injection only.
+
+  ## Lease revocation
+
+  `terminate/1` revokes the active lease on shutdown. This is best-effort only:
+  if the OTP process is killed with `:kill`, `terminate/1` does not run.
+  Configure Vault's `default_lease_ttl` and `max_lease_ttl` as server-side safety nets.
   """
 
   @behaviour RotatingSecrets.Source
 
+  require Logger
+
   alias RotatingSecrets.Source.Vault.HTTP
-  import RotatingSecrets.Source.Vault.Opts, only: [fetch_required_string: 2, validate_namespace: 1]
+  import RotatingSecrets.Source.Vault.Opts,
+    only: [fetch_required_string: 2, validate_namespace: 1, validate_path: 1]
 
   @impl RotatingSecrets.Source
   @spec init(keyword()) :: {:ok, map()} | {:error, term()}
@@ -35,7 +44,9 @@ defmodule RotatingSecrets.Source.Vault.PKI do
          {:ok, role} <- fetch_required_string(opts, :role),
          {:ok, token} <- fetch_required_string(opts, :token),
          {:ok, common_name} <- fetch_required_string(opts, :common_name),
-         :ok <- validate_namespace(Keyword.get(opts, :namespace)) do
+         :ok <- validate_namespace(Keyword.get(opts, :namespace)),
+         :ok <- (case validate_path(mount) do :ok -> :ok; _ -> {:error, {:invalid_option, :mount}} end),
+         :ok <- (case validate_path(role) do :ok -> :ok; _ -> {:error, {:invalid_option, :role}} end) do
       state = %{
         address: address,
         mount: mount,
@@ -185,7 +196,9 @@ defmodule RotatingSecrets.Source.Vault.PKI do
       extensions = cert |> elem(1) |> elem(7)
       extract_san_extension(extensions)
     rescue
-      _ -> []
+      e ->
+        Logger.warning("RotatingSecrets PKI: SAN extraction failed: #{Exception.message(e)}")
+        []
     end
   end
 
@@ -193,7 +206,7 @@ defmodule RotatingSecrets.Source.Vault.PKI do
     # OID for Subject Alternative Name is {2, 5, 29, 17}
     san_oid = {2, 5, 29, 17}
 
-    case Enum.find(extensions, fn ext -> elem(ext, 0) == :Extension && elem(ext, 1) == san_oid end) do
+    case Enum.find(extensions, fn ext -> elem(ext, 0) == :Extension and elem(ext, 1) == san_oid end) do
       nil ->
         []
 
