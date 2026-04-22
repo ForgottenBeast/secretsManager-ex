@@ -112,7 +112,7 @@ defmodule OpenBaoHelper do
   end
 
   def pg_connection_url do
-    host = System.get_env("PG_HOST", "localhost")
+    host = System.get_env("PG_HOST", "127.0.0.1")
     port = System.get_env("PG_PORT", "5432")
     db   = System.get_env("PG_DB", "postgres")
     "postgresql://{{username}}:{{password}}@#{host}:#{port}/#{db}"

@@ -169,6 +169,9 @@ jobs:
           MIX_ENV: test
           OPENBAO_BIN: /usr/local/bin/bao
           PG_AVAILABLE: "1"
+          PG_HOST: 127.0.0.1
+          PG_PORT: "5432"
+          PG_DB: postgres
 
       - name: Kill bao between test steps
         run: pkill bao || true
@@ -180,3 +183,6 @@ jobs:
           OPENBAO_BIN: /usr/local/bin/bao
           RUST_CONSUMER_BIN: ${{ github.workspace }}/secretManager-rs/target/release/examples/http_server
           PG_AVAILABLE: "1"
+          PG_HOST: 127.0.0.1
+          PG_PORT: "5432"
+          PG_DB: postgres
