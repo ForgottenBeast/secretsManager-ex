@@ -78,8 +78,9 @@ EOF
   # Start server and wait for it to be ready (-w = synchronous)
   pg_ctl start -D "$PGDATA" -l "$PGDATA/logfile" -w
 
-  # Set password via unix socket (uses local trust rule — no password needed)
-  psql -h "$PGDATA" -U postgres -c "ALTER USER postgres PASSWORD 'postgres';" -q 2>/dev/null
+  # Set password via unix socket (uses local trust rule — no password needed).
+  # Pass -p so psql resolves the correct socket file (.s.PGSQL.$PG_PORT).
+  psql -h "$PGDATA" -p "$PG_PORT" -U postgres -c "ALTER USER postgres PASSWORD 'postgres';" -q 2>/dev/null
 
   # Verify TCP endpoint is up (md5 auth now active)
   pg_isready -h 127.0.0.1 -p "$PG_PORT" -q

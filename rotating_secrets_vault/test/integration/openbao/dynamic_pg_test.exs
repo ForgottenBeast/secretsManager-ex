@@ -146,11 +146,19 @@ defmodule RotatingSecretsVault.Integration.DynamicPgTest do
   end
 
   defp pg_connect(username, password) do
-    # sync_connect: true blocks until the TCP connection is established, but
-    # PostgreSQL authentication completes asynchronously after start_link
-    # returns in DBConnection 2.x. Issue a SELECT 1 to force the auth handshake
-    # to complete before returning — this gives tests a reliable
-    # {:ok, conn} / {:error, reason} result even for auth failures.
+    # sync_connect: true establishes the TCP socket synchronously, but
+    # PostgreSQL auth completes asynchronously in DBConnection 2.x — so
+    # start_link can return {:ok, conn} before the handshake finishes.
+    # Two additional measures make this reliable for auth-failure assertions:
+    #
+    #   1. Process.unlink/1 immediately after start_link: if the connection
+    #      process later crashes (auth rejected), the EXIT signal does not
+    #      propagate to the test process.
+    #
+    #   2. SELECT 1 forces the auth handshake to complete synchronously.
+    #      Postgrex.query/4 uses a monitor (not a link) for the call, so it
+    #      returns {:error, reason} on auth failure rather than crashing the
+    #      caller.
     case Postgrex.start_link(
       hostname: System.get_env("PG_HOST", "127.0.0.1"),
       port: String.to_integer(System.get_env("PG_PORT", "5432")),
@@ -161,13 +169,23 @@ defmodule RotatingSecretsVault.Integration.DynamicPgTest do
       backoff_type: :stop
     ) do
       {:ok, conn} ->
-        case Postgrex.query(conn, "SELECT 1", [], timeout: 3_000) do
-          {:ok, _} ->
-            {:ok, conn}
+        # Unlink so a crashing connection process doesn't kill the test process.
+        Process.unlink(conn)
 
-          {:error, reason} ->
-            if Process.alive?(conn), do: GenServer.stop(conn, :normal, 1_000)
-            {:error, reason}
+        # GenServer.call (used internally by Postgrex.query) re-raises any
+        # :exit from the called process. Catch it and normalise to {:error, _}.
+        try do
+          case Postgrex.query(conn, "SELECT 1", [], timeout: 3_000) do
+            {:ok, _} ->
+              {:ok, conn}
+
+            {:error, reason} ->
+              if Process.alive?(conn), do: GenServer.stop(conn, :normal, 1_000)
+              {:error, reason}
+          end
+        catch
+          :exit, reason ->
+            {:error, {:exit, reason}}
         end
 
       {:error, _} = err ->
