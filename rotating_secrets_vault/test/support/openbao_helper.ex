@@ -95,6 +95,11 @@ defmodule OpenBaoHelper do
     :ok
   end
 
+  def create_transit_key!(name, mount \\ "transit") do
+    Req.post!(build_client(), url: "/v1/#{mount}/keys/#{name}", json: %{"type" => "aes256-gcm96"})
+    :ok
+  end
+
   def rotate_transit_key!(mount, name) do
     # Transit rotation returns HTTP 204 No Content — use raw Req.post!, NOT HTTP module
     Req.post!(build_client(), url: "/v1/#{mount}/keys/#{name}/rotate", json: %{})
