@@ -38,7 +38,7 @@ defmodule RotatingSecrets.Source.Vault.Transit.Operations do
   def delete_key(base_req, mount, key_name) do
     config_path = "/v1/#{mount}/keys/#{key_name}/config"
     delete_path = "/v1/#{mount}/keys/#{key_name}"
-    with {:ok, _} <- HTTP.put(base_req, config_path, %{"deletion_allowed" => true}) do
+    with {:ok, _} <- HTTP.post(base_req, config_path, %{"deletion_allowed" => true}) do
       HTTP.delete(base_req, delete_path)
     end
   end

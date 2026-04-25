@@ -55,6 +55,8 @@ defmodule RotatingSecretsVault.Integration.TransitOperationsTest do
   test "delete_key/3 removes the key", %{key_name: key_name} do
     :ok = Operations.create_key(base_req(), "transit", key_name)
     assert :ok = Operations.delete_key(base_req(), "transit", key_name)
-    assert {:error, _} = Operations.encrypt(base_req(), "transit", key_name, "test")
+    # Verify deletion via key metadata — encrypt may auto-create in some OpenBao versions
+    assert {:error, :vault_secret_not_found} =
+             HTTP.get(base_req(), "/v1/transit/keys/#{key_name}")
   end
 end
