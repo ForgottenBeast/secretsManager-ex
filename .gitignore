@@ -58,3 +58,4 @@ npm-debug.log
 *.db
 *.db-shm
 *.db-wal
+.agent_key
