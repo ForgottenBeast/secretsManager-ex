@@ -5,7 +5,7 @@ defmodule RotatingSecretsTesting.MixProject do
     [
       app: :rotating_secrets_testing,
       version: "0.1.0",
-      elixir: "~> 1.18",
+      elixir: "~> 1.17",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       aliases: aliases(),
