@@ -40,8 +40,27 @@ defmodule RotatingSecrets.Source.Vault.HTTP do
     end
   end
 
+  @spec post(Req.Request.t(), String.t(), map()) :: {:ok, map()} | {:error, atom()}
+  def post(base_req, path, body) do
+    try do
+      base_req |> Req.post(url: path, json: body) |> normalise_response()
+    rescue
+      e in Req.TransportError -> normalise_response({:error, e})
+    end
+  end
+
+  @spec delete(Req.Request.t(), String.t()) :: :ok | {:error, atom()}
+  def delete(base_req, path) do
+    try do
+      base_req |> Req.delete(url: path) |> normalise_response_delete()
+    rescue
+      e in Req.TransportError -> normalise_response({:error, e})
+    end
+  end
+
   @spec normalise_response({:ok, Req.Response.t()} | {:error, Exception.t()}) ::
           {:ok, map()} | {:error, atom()}
+  def normalise_response({:ok, %Req.Response{status: 204}}), do: {:ok, %{}}
   def normalise_response({:ok, %Req.Response{status: 200, body: body}}), do: {:ok, body}
   def normalise_response({:ok, %Req.Response{status: 403}}), do: {:error, :vault_auth_error}
   def normalise_response({:ok, %Req.Response{status: 404}}), do: {:error, :vault_secret_not_found}
@@ -66,6 +85,10 @@ defmodule RotatingSecrets.Source.Vault.HTTP do
   end
 
   def normalise_response({:error, _}), do: {:error, :vault_unexpected_error}
+
+  defp normalise_response_delete({:ok, %Req.Response{status: s}}) when s in [200, 204], do: :ok
+  defp normalise_response_delete({:ok, %Req.Response{status: 404}}), do: :ok
+  defp normalise_response_delete(other), do: normalise_response(other)
 
   defp build_headers(token, nil), do: [{"x-vault-token", token}]
 
