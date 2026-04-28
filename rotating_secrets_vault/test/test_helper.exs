@@ -50,4 +50,8 @@ unless pg_available do
   IO.puts("[test_helper] PostgreSQL not available — :openbao_db and :cross_lang_db tests excluded")
 end
 
+unless System.get_env("BAO_UNIX_SOCKET") do
+  ExUnit.configure(exclude: (ExUnit.configuration()[:exclude] || []) ++ [:unix_socket])
+end
+
 ExUnit.start()
