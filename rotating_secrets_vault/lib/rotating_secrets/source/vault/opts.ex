@@ -20,6 +20,24 @@ defmodule RotatingSecrets.Source.Vault.Opts do
   end
   def validate_namespace(_), do: {:error, {:invalid_option, :namespace}}
 
+  @spec validate_unix_socket(String.t() | nil) :: :ok | {:error, term()}
+  def validate_unix_socket(nil), do: :ok
+  def validate_unix_socket(path) when is_binary(path) and byte_size(path) > 0 do
+    if String.contains?(path, ["\0", "\r", "\n"]),
+      do: {:error, {:invalid_option, :unix_socket}},
+      else: :ok
+  end
+  def validate_unix_socket(_), do: {:error, {:invalid_option, :unix_socket}}
+
+  @spec fetch_optional_token(keyword()) :: {:ok, String.t() | nil} | {:error, term()}
+  def fetch_optional_token(opts) do
+    if Keyword.get(opts, :agent_mode, false) || Keyword.get(opts, :unix_socket) do
+      {:ok, Keyword.get(opts, :token)}
+    else
+      fetch_required_string(opts, :token)
+    end
+  end
+
   @spec validate_path_component(String.t()) :: :ok | {:error, term()}
   def validate_path_component(segment) when is_binary(segment) do
     cond do
