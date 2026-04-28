@@ -18,6 +18,8 @@ defmodule RotatingSecrets.Source.Vault.PKI do
     * `:ip_sans` — list of IP SANs. Optional.
     * `:uri_sans` — list of URI SANs. Optional.
     * `:namespace` — Vault Enterprise namespace (non-empty binary). Optional.
+    * `:unix_socket` — path to a UNIX domain socket (e.g. `"/run/bao.sock"`). When set, all connections route through this socket. Set `address:` to `"http://localhost"` when using this option. Optional.
+    * `:agent_mode` — when true, token is not required (agent handles auth). Default false. Optional.
     * `:revoke_on_terminate` — revoke certificate on Registry shutdown. Default `false`.
     * `:req_options` — keyword list merged into `Req.new/1`. For test injection only.
 
@@ -34,7 +36,7 @@ defmodule RotatingSecrets.Source.Vault.PKI do
 
   alias RotatingSecrets.Source.Vault.HTTP
   import RotatingSecrets.Source.Vault.Opts,
-    only: [fetch_required_string: 2, validate_namespace: 1, validate_path: 1]
+    only: [fetch_required_string: 2, fetch_optional_token: 1, validate_namespace: 1, validate_path: 1, validate_unix_socket: 1]
 
   @impl RotatingSecrets.Source
   @spec init(keyword()) :: {:ok, map()} | {:error, term()}
@@ -42,9 +44,10 @@ defmodule RotatingSecrets.Source.Vault.PKI do
     with {:ok, address} <- fetch_required_string(opts, :address),
          {:ok, mount} <- fetch_required_string(opts, :mount),
          {:ok, role} <- fetch_required_string(opts, :role),
-         {:ok, token} <- fetch_required_string(opts, :token),
+         {:ok, token} <- fetch_optional_token(opts),
          {:ok, common_name} <- fetch_required_string(opts, :common_name),
          :ok <- validate_namespace(Keyword.get(opts, :namespace)),
+         :ok <- validate_unix_socket(Keyword.get(opts, :unix_socket)),
          :ok <- (case validate_path(mount) do :ok -> :ok; _ -> {:error, {:invalid_option, :mount}} end),
          :ok <- (case validate_path(role) do :ok -> :ok; _ -> {:error, {:invalid_option, :role}} end) do
       state = %{
@@ -58,6 +61,8 @@ defmodule RotatingSecrets.Source.Vault.PKI do
         ip_sans: Keyword.get(opts, :ip_sans, []),
         uri_sans: Keyword.get(opts, :uri_sans, []),
         namespace: Keyword.get(opts, :namespace),
+        unix_socket: Keyword.get(opts, :unix_socket),
+        agent_mode: Keyword.get(opts, :agent_mode, false),
         revoke_on_terminate: Keyword.get(opts, :revoke_on_terminate, false),
         req_options: Keyword.get(opts, :req_options, []),
         serial_number: nil

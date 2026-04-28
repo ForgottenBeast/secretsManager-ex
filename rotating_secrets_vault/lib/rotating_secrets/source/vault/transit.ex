@@ -13,6 +13,8 @@ defmodule RotatingSecrets.Source.Vault.Transit do
     * `:name` — Key name, e.g. `"my-key"`. Required.
     * `:token` — Vault token for authentication. Required.
     * `:namespace` — Vault Enterprise namespace (non-empty binary). Optional.
+    * `:unix_socket` — path to a UNIX domain socket (e.g. `"/run/bao.sock"`). When set, all connections route through this socket. Set `address:` to `"http://localhost"` when using this option. Optional.
+    * `:agent_mode` — when true, token is not required (agent handles auth). Default false. Optional.
     * `:req_options` — keyword list merged into `Req.new/1`. For test injection only.
 
   ## No TTL
@@ -25,7 +27,7 @@ defmodule RotatingSecrets.Source.Vault.Transit do
 
   alias RotatingSecrets.Source.Vault.HTTP
   import RotatingSecrets.Source.Vault.Opts,
-    only: [fetch_required_string: 2, validate_namespace: 1, validate_path: 1]
+    only: [fetch_required_string: 2, fetch_optional_token: 1, validate_namespace: 1, validate_path: 1, validate_unix_socket: 1]
 
   @impl RotatingSecrets.Source
   @spec init(keyword()) :: {:ok, map()} | {:error, term()}
@@ -33,8 +35,9 @@ defmodule RotatingSecrets.Source.Vault.Transit do
     with {:ok, address} <- fetch_required_string(opts, :address),
          {:ok, mount}   <- fetch_required_string(opts, :mount),
          {:ok, name}    <- fetch_required_string(opts, :name),
-         {:ok, token}   <- fetch_required_string(opts, :token),
+         {:ok, token}   <- fetch_optional_token(opts),
          :ok            <- validate_namespace(Keyword.get(opts, :namespace)),
+         :ok            <- validate_unix_socket(Keyword.get(opts, :unix_socket)),
          :ok            <- (case validate_path(mount) do :ok -> :ok; _ -> {:error, {:invalid_option, :mount}} end),
          :ok            <- (case validate_path(name) do :ok -> :ok; _ -> {:error, {:invalid_option, :name}} end) do
       state = %{
@@ -43,6 +46,8 @@ defmodule RotatingSecrets.Source.Vault.Transit do
         name:        name,
         token:       token,
         namespace:   Keyword.get(opts, :namespace),
+        unix_socket: Keyword.get(opts, :unix_socket),
+        agent_mode: Keyword.get(opts, :agent_mode, false),
         req_options: Keyword.get(opts, :req_options, [])
       }
       {:ok, Map.put(state, :base_req, HTTP.base_request(Map.to_list(state)))}
