@@ -37,5 +37,16 @@ defmodule RotatingSecrets.Source.Vault do
                  name: "my-key",
                  token: System.fetch_env!("VAULT_TOKEN")},
         fallback_interval_ms: 60_000)
+
+      # Connecting via a bao agent UNIX socket:
+      # Set address: to "http://localhost" — the host is used only for the
+      # HTTP Host header; all traffic routes through the socket.
+      RotatingSecrets.register(:api_key,
+        source: {RotatingSecrets.Source.Vault.KvV2,
+                 address: "http://localhost",
+                 unix_socket: "/run/bao.sock",
+                 mount: "secret",
+                 path: "myapp/api_key",
+                 token: System.fetch_env!("VAULT_TOKEN")})
   """
 end
