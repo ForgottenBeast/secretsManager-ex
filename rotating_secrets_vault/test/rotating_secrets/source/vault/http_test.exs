@@ -127,6 +127,47 @@ defmodule RotatingSecrets.Source.Vault.HTTPTest do
     end
   end
 
+  describe "base_request/1 — unix_socket option" do
+    test "with :unix_socket sets unix_socket key on Req struct" do
+      req =
+        HTTP.base_request(
+          address: "http://localhost",
+          token: "s.token",
+          unix_socket: "/run/bao.sock"
+        )
+
+      assert req.options[:unix_socket] == "/run/bao.sock"
+    end
+
+    test "without :unix_socket does not set unix_socket key on Req struct" do
+      req =
+        HTTP.base_request(
+          address: "http://127.0.0.1:8200",
+          token: "s.token"
+        )
+
+      refute Map.has_key?(req.options, :unix_socket)
+    end
+
+    test "with nil token does not include x-vault-token header" do
+      req = HTTP.base_request(address: "http://localhost", token: nil)
+      header_names = req.headers |> Enum.map(fn {k, _v} -> k end)
+      refute "x-vault-token" in header_names
+    end
+  end
+
+  describe "normalise_response/1 — unix socket transport errors" do
+    test "enoent returns :vault_socket_not_found" do
+      err = %Req.TransportError{reason: :enoent}
+      assert {:error, :vault_socket_not_found} = HTTP.normalise_response({:error, err})
+    end
+
+    test "eacces returns :vault_socket_permission_denied" do
+      err = %Req.TransportError{reason: :eacces}
+      assert {:error, :vault_socket_permission_denied} = HTTP.normalise_response({:error, err})
+    end
+  end
+
   describe "put/3 via Req.Test plug" do
     test "200 with JSON body returns {:ok, body}" do
       Req.Test.stub(@stub_name, fn conn ->
