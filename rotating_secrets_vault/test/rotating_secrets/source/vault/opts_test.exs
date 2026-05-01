@@ -50,6 +50,61 @@ defmodule RotatingSecrets.Source.Vault.OptsTest do
     test "bad auth type returns error" do
       assert {:error, {:invalid_option, :auth}} = Opts.validate_auth("bad")
     end
+
+    test "accepts {:zitadel_oidc, opts} with required fields" do
+      assert {:ok, {:zitadel_oidc, _}} =
+               Opts.validate_auth({:zitadel_oidc, [spiffe_ex: MySpiffe, role: "my-role"]})
+    end
+
+    test "accepts {:zitadel_oidc, opts} with optional mount" do
+      assert {:ok, {:zitadel_oidc, _}} =
+               Opts.validate_auth({:zitadel_oidc, [spiffe_ex: MySpiffe, role: "my-role", mount: "custom"]})
+    end
+
+    test "rejects {:zitadel_oidc, opts} missing :spiffe_ex" do
+      assert {:error, {:invalid_option, :spiffe_ex}} =
+               Opts.validate_auth({:zitadel_oidc, [role: "my-role"]})
+    end
+
+    test "rejects {:zitadel_oidc, opts} missing :role" do
+      assert {:error, {:invalid_option, :role}} =
+               Opts.validate_auth({:zitadel_oidc, [spiffe_ex: MySpiffe]})
+    end
+
+    test "accepts {:oidc, opts} with all required fields" do
+      assert {:ok, {:oidc, _}} =
+               Opts.validate_auth({:oidc, [
+                 issuer_uri: "https://example.com",
+                 client_id: "my-client",
+                 client_secret: "my-secret",
+                 role: "my-role"
+               ]})
+    end
+
+    test "rejects {:oidc, opts} missing :issuer_uri" do
+      assert {:error, {:invalid_option, :issuer_uri}} =
+               Opts.validate_auth({:oidc, [client_id: "c", client_secret: "s", role: "r"]})
+    end
+
+    test "rejects {:oidc, opts} missing :client_id" do
+      assert {:error, {:invalid_option, :client_id}} =
+               Opts.validate_auth({:oidc, [issuer_uri: "https://x.com", client_secret: "s", role: "r"]})
+    end
+
+    test "rejects {:oidc, opts} missing :client_secret" do
+      assert {:error, {:invalid_option, :client_secret}} =
+               Opts.validate_auth({:oidc, [issuer_uri: "https://x.com", client_id: "c", role: "r"]})
+    end
+
+    test "rejects {:oidc, opts} missing :role" do
+      assert {:error, {:invalid_option, :role}} =
+               Opts.validate_auth({:oidc, [issuer_uri: "https://x.com", client_id: "c", client_secret: "s"]})
+    end
+
+    test "rejects {:oidc, opts} with empty :client_secret" do
+      assert {:error, {:invalid_option, :client_secret}} =
+               Opts.validate_auth({:oidc, [issuer_uri: "https://x.com", client_id: "c", client_secret: "", role: "r"]})
+    end
   end
 
   describe "fetch_required_atom/2" do
