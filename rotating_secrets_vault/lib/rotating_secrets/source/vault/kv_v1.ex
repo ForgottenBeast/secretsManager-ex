@@ -20,7 +20,7 @@ defmodule RotatingSecrets.Source.Vault.KvV1 do
   @behaviour RotatingSecrets.Source
 
   alias RotatingSecrets.Source.Vault.HTTP
-  alias RotatingSecrets.Source.Vault.Auth.JwtSvid, as: AuthJwtSvid
+  alias RotatingSecrets.Source.Vault.Auth.Dispatcher, as: AuthDispatcher
   import RotatingSecrets.Source.Vault.Opts,
     only: [fetch_required_string: 2, fetch_optional_token: 1, validate_namespace: 1, validate_path: 1, validate_unix_socket: 1, validate_auth: 1]
 
@@ -52,7 +52,7 @@ defmodule RotatingSecrets.Source.Vault.KvV1 do
       }
       base_req = HTTP.base_request(Map.to_list(state))
 
-      with {:ok, auth_state} <- maybe_init_auth(auth_validated, base_req) do
+      with {:ok, auth_state} <- AuthDispatcher.init(auth_validated, base_req) do
         {:ok, state |> Map.put(:base_req, base_req) |> Map.put(:auth, auth_state)}
       end
     end
@@ -61,7 +61,7 @@ defmodule RotatingSecrets.Source.Vault.KvV1 do
   @impl RotatingSecrets.Source
   @spec load(map()) :: {:ok, binary(), map(), map()} | {:error, atom(), map()}
   def load(%{auth: auth, base_req: base_req} = state) when not is_nil(auth) do
-    case AuthJwtSvid.ensure_fresh(auth, base_req) do
+    case AuthDispatcher.ensure_fresh(auth, base_req) do
       {:ok, fresh_req, new_auth} -> do_load(fresh_req, %{state | auth: new_auth})
       {:error, reason} -> {:error, reason, state}
     end
@@ -96,6 +96,4 @@ defmodule RotatingSecrets.Source.Vault.KvV1 do
     Base.encode16(hash, case: :lower)
   end
 
-  defp maybe_init_auth(nil, _base_req), do: {:ok, nil}
-  defp maybe_init_auth({:jwt_svid, jwt_opts}, base_req), do: AuthJwtSvid.init(jwt_opts, base_req)
 end

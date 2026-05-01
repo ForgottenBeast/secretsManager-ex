@@ -232,8 +232,8 @@ defmodule RotatingSecrets.Source.Vault.KvV2Test do
       ]
 
       assert {:ok, state} = KvV2.init(opts)
-      assert state.auth != nil
-      assert state.auth.vault_token == "s.jwt-token"
+      assert {:jwt_svid, jwt_svid_state} = state.auth
+      assert jwt_svid_state.vault_token == "s.jwt-token"
     end
   end
 
