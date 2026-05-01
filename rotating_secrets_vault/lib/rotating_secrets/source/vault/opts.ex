@@ -29,12 +29,37 @@ defmodule RotatingSecrets.Source.Vault.Opts do
   end
   def validate_unix_socket(_), do: {:error, {:invalid_option, :unix_socket}}
 
+  @spec validate_auth(term()) :: {:ok, term()} | {:error, term()}
+  def validate_auth(nil), do: {:ok, nil}
+  def validate_auth({:jwt_svid, jwt_opts}) when is_list(jwt_opts) do
+    validate_jwt_svid_auth(jwt_opts)
+  end
+  def validate_auth(_), do: {:error, {:invalid_option, :auth}}
+
+  @spec validate_jwt_svid_auth(keyword()) :: {:ok, {:jwt_svid, keyword()}} | {:error, term()}
+  def validate_jwt_svid_auth(opts) do
+    with {:ok, _} <- fetch_required_atom(opts, :spiffe_ex),
+         {:ok, _} <- fetch_required_string(opts, :audience),
+         {:ok, _} <- fetch_required_string(opts, :role) do
+      {:ok, {:jwt_svid, opts}}
+    end
+  end
+
+  @spec fetch_required_atom(keyword(), atom()) :: {:ok, atom()} | {:error, term()}
+  def fetch_required_atom(opts, key) do
+    case Keyword.fetch(opts, key) do
+      {:ok, val} when is_atom(val) -> {:ok, val}
+      _ -> {:error, {:invalid_option, key}}
+    end
+  end
+
   @spec fetch_optional_token(keyword()) :: {:ok, String.t() | nil} | {:error, term()}
   def fetch_optional_token(opts) do
-    if Keyword.get(opts, :agent_mode, false) || Keyword.get(opts, :unix_socket) do
-      {:ok, Keyword.get(opts, :token)}
-    else
-      fetch_required_string(opts, :token)
+    cond do
+      Keyword.get(opts, :auth) != nil -> {:ok, nil}
+      Keyword.get(opts, :agent_mode, false) -> {:ok, Keyword.get(opts, :token)}
+      Keyword.get(opts, :unix_socket) != nil -> {:ok, Keyword.get(opts, :token)}
+      true -> fetch_required_string(opts, :token)
     end
   end
 
