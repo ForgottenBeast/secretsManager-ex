@@ -33,6 +33,7 @@ defmodule RotatingSecretsVault.MixProject do
       # NOTE: switch to {:rotating_secrets, "~> 0.1"} before publishing to Hex
       # req ~> 0.5: verify against your project's mix.lock before upgrading
       {:rotating_secrets, path: "../rotating_secrets"},
+      {:spiffe_ex, path: "../../spiffe-ex"},
       {:req, "~> 0.5"},
       {:jason, "~> 1.4"},
       {:plug, "~> 1.16", only: :test},
@@ -40,7 +41,7 @@ defmodule RotatingSecretsVault.MixProject do
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false},
-      {:stream_data, "~> 1.0", only: :test},
+      {:stream_data, "~> 1.0"},
       {:postgrex, "~> 0.17", only: :test}
     ]
   end
