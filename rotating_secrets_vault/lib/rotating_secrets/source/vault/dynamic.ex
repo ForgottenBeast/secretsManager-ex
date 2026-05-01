@@ -27,12 +27,15 @@ defmodule RotatingSecrets.Source.Vault.Dynamic do
   @behaviour RotatingSecrets.Source
 
   alias RotatingSecrets.Source.Vault.HTTP
+  alias RotatingSecrets.Source.Vault.Auth.JwtSvid, as: AuthJwtSvid
   import RotatingSecrets.Source.Vault.Opts,
-    only: [fetch_required_string: 2, fetch_optional_token: 1, validate_namespace: 1, validate_path: 1, validate_unix_socket: 1]
+    only: [fetch_required_string: 2, fetch_optional_token: 1, validate_namespace: 1, validate_path: 1, validate_unix_socket: 1, validate_auth: 1]
 
   @impl RotatingSecrets.Source
   @spec init(keyword()) :: {:ok, map()} | {:error, term()}
   def init(opts) do
+    auth_raw = Keyword.get(opts, :auth)
+
     with {:ok, address} <- fetch_required_string(opts, :address),
          {:ok, mount} <- fetch_required_string(opts, :mount),
          {:ok, path} <- fetch_required_string(opts, :path),
@@ -40,7 +43,8 @@ defmodule RotatingSecrets.Source.Vault.Dynamic do
          :ok <- validate_namespace(Keyword.get(opts, :namespace)),
          :ok <- validate_unix_socket(Keyword.get(opts, :unix_socket)),
          :ok <- (case validate_path(mount) do :ok -> :ok; _ -> {:error, {:invalid_option, :mount}} end),
-         :ok <- (case validate_path(path) do :ok -> :ok; _ -> {:error, {:invalid_option, :path}} end) do
+         :ok <- (case validate_path(path) do :ok -> :ok; _ -> {:error, {:invalid_option, :path}} end),
+         {:ok, auth_validated} <- validate_auth(auth_raw) do
       state = %{
         address: address,
         mount: mount,
@@ -54,16 +58,27 @@ defmodule RotatingSecrets.Source.Vault.Dynamic do
         lease_id: nil,
         current_material: nil
       }
+      base_req = HTTP.base_request(Map.to_list(state))
 
-      {:ok, Map.put(state, :base_req, HTTP.base_request(Map.to_list(state)))}
+      with {:ok, auth_state} <- maybe_init_auth(auth_validated, base_req) do
+        {:ok, state |> Map.put(:base_req, base_req) |> Map.put(:auth, auth_state)}
+      end
     end
   end
 
   @impl RotatingSecrets.Source
   @spec load(map()) :: {:ok, binary(), map(), map()} | {:error, atom(), map()}
-  def load(state) do
+  def load(%{auth: auth, base_req: base_req} = state) when not is_nil(auth) do
+    case AuthJwtSvid.ensure_fresh(auth, base_req) do
+      {:ok, fresh_req, new_auth} -> do_load(fresh_req, %{state | auth: new_auth})
+      {:error, reason} -> {:error, reason, state}
+    end
+  end
+  def load(state), do: do_load(state.base_req, state)
+
+  defp do_load(base_req, state) do
     if state.lease_id != nil do
-      renew_req = Req.merge(state.base_req, receive_timeout: 5000)
+      renew_req = Req.merge(base_req, receive_timeout: 5000)
 
       case HTTP.put(renew_req, "/v1/sys/leases/renew", %{"lease_id" => state.lease_id}) do
         {:ok, renewal_body} ->
@@ -78,10 +93,10 @@ defmodule RotatingSecrets.Source.Vault.Dynamic do
           {:ok, state.current_material, new_meta, state}
 
         {:error, _} ->
-          fetch_new_credentials(state)
+          fetch_new_credentials(base_req, state)
       end
     else
-      fetch_new_credentials(state)
+      fetch_new_credentials(base_req, state)
     end
   end
 
@@ -105,10 +120,10 @@ defmodule RotatingSecrets.Source.Vault.Dynamic do
     :ok
   end
 
-  defp fetch_new_credentials(state) do
+  defp fetch_new_credentials(base_req, state) do
     url_path = "/v1/#{state.mount}/creds/#{state.path}"
 
-    case HTTP.get(state.base_req, url_path) do
+    case HTTP.get(base_req, url_path) do
       {:ok, body} ->
         material = extract_material(body, state.key)
         meta = build_meta(body)
@@ -144,4 +159,6 @@ defmodule RotatingSecrets.Source.Vault.Dynamic do
   defp maybe_add_ttl_seconds(meta, 0), do: meta
   defp maybe_add_ttl_seconds(meta, duration), do: Map.put(meta, :ttl_seconds, duration)
 
+  defp maybe_init_auth(nil, _base_req), do: {:ok, nil}
+  defp maybe_init_auth({:jwt_svid, jwt_opts}, base_req), do: AuthJwtSvid.init(jwt_opts, base_req)
 end

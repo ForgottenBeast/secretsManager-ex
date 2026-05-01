@@ -35,12 +35,15 @@ defmodule RotatingSecrets.Source.Vault.PKI do
   require Logger
 
   alias RotatingSecrets.Source.Vault.HTTP
+  alias RotatingSecrets.Source.Vault.Auth.JwtSvid, as: AuthJwtSvid
   import RotatingSecrets.Source.Vault.Opts,
-    only: [fetch_required_string: 2, fetch_optional_token: 1, validate_namespace: 1, validate_path: 1, validate_unix_socket: 1]
+    only: [fetch_required_string: 2, fetch_optional_token: 1, validate_namespace: 1, validate_path: 1, validate_unix_socket: 1, validate_auth: 1]
 
   @impl RotatingSecrets.Source
   @spec init(keyword()) :: {:ok, map()} | {:error, term()}
   def init(opts) do
+    auth_raw = Keyword.get(opts, :auth)
+
     with {:ok, address} <- fetch_required_string(opts, :address),
          {:ok, mount} <- fetch_required_string(opts, :mount),
          {:ok, role} <- fetch_required_string(opts, :role),
@@ -49,7 +52,8 @@ defmodule RotatingSecrets.Source.Vault.PKI do
          :ok <- validate_namespace(Keyword.get(opts, :namespace)),
          :ok <- validate_unix_socket(Keyword.get(opts, :unix_socket)),
          :ok <- (case validate_path(mount) do :ok -> :ok; _ -> {:error, {:invalid_option, :mount}} end),
-         :ok <- (case validate_path(role) do :ok -> :ok; _ -> {:error, {:invalid_option, :role}} end) do
+         :ok <- (case validate_path(role) do :ok -> :ok; _ -> {:error, {:invalid_option, :role}} end),
+         {:ok, auth_validated} <- validate_auth(auth_raw) do
       state = %{
         address: address,
         mount: mount,
@@ -67,17 +71,28 @@ defmodule RotatingSecrets.Source.Vault.PKI do
         req_options: Keyword.get(opts, :req_options, []),
         serial_number: nil
       }
+      base_req = HTTP.base_request(Map.to_list(state))
 
-      {:ok, Map.put(state, :base_req, HTTP.base_request(Map.to_list(state)))}
+      with {:ok, auth_state} <- maybe_init_auth(auth_validated, base_req) do
+        {:ok, state |> Map.put(:base_req, base_req) |> Map.put(:auth, auth_state)}
+      end
     end
   end
 
   @impl RotatingSecrets.Source
   @spec load(map()) :: {:ok, binary(), map(), map()} | {:error, atom(), map()}
-  def load(state) do
+  def load(%{auth: auth, base_req: base_req} = state) when not is_nil(auth) do
+    case AuthJwtSvid.ensure_fresh(auth, base_req) do
+      {:ok, fresh_req, new_auth} -> do_load(fresh_req, %{state | auth: new_auth})
+      {:error, reason} -> {:error, reason, state}
+    end
+  end
+  def load(state), do: do_load(state.base_req, state)
+
+  defp do_load(base_req, state) do
     body = build_issue_body(state)
 
-    case HTTP.put(state.base_req, "/v1/#{state.mount}/issue/#{state.role}", body) do
+    case HTTP.put(base_req, "/v1/#{state.mount}/issue/#{state.role}", body) do
       {:ok, response_body} ->
         data = response_body["data"]
         cert_pem = data["certificate"]
@@ -249,4 +264,6 @@ defmodule RotatingSecrets.Source.Vault.PKI do
 
   defp format_ip(_), do: ""
 
+  defp maybe_init_auth(nil, _base_req), do: {:ok, nil}
+  defp maybe_init_auth({:jwt_svid, jwt_opts}, base_req), do: AuthJwtSvid.init(jwt_opts, base_req)
 end

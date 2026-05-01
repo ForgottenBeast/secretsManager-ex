@@ -20,8 +20,9 @@ defmodule RotatingSecrets.Source.Vault.KvV2 do
   @behaviour RotatingSecrets.Source
 
   alias RotatingSecrets.Source.Vault.HTTP
+  alias RotatingSecrets.Source.Vault.Auth.JwtSvid, as: AuthJwtSvid
   import RotatingSecrets.Source.Vault.Opts,
-    only: [fetch_required_string: 2, fetch_optional_token: 1, validate_namespace: 1, validate_path: 1, validate_unix_socket: 1]
+    only: [fetch_required_string: 2, fetch_optional_token: 1, validate_namespace: 1, validate_path: 1, validate_unix_socket: 1, validate_auth: 1]
 
   @doc """
   Validates required options and builds the initial request configuration.
@@ -44,6 +45,8 @@ defmodule RotatingSecrets.Source.Vault.KvV2 do
   @spec init(keyword()) :: {:ok, map()} | {:error, term()}
   @impl RotatingSecrets.Source
   def init(opts) do
+    auth_raw = Keyword.get(opts, :auth)
+
     with {:ok, address} <- fetch_required_string(opts, :address),
          {:ok, mount} <- fetch_required_string(opts, :mount),
          {:ok, path} <- fetch_required_string(opts, :path),
@@ -51,7 +54,8 @@ defmodule RotatingSecrets.Source.Vault.KvV2 do
          :ok <- validate_namespace(Keyword.get(opts, :namespace)),
          :ok <- validate_unix_socket(Keyword.get(opts, :unix_socket)),
          :ok <- (case validate_path(mount) do :ok -> :ok; _ -> {:error, {:invalid_option, :mount}} end),
-         :ok <- (case validate_path(path) do :ok -> :ok; _ -> {:error, {:invalid_option, :path}} end) do
+         :ok <- (case validate_path(path) do :ok -> :ok; _ -> {:error, {:invalid_option, :path}} end),
+         {:ok, auth_validated} <- validate_auth(auth_raw) do
       state = %{
         address: address,
         mount: mount,
@@ -63,7 +67,11 @@ defmodule RotatingSecrets.Source.Vault.KvV2 do
         agent_mode: Keyword.get(opts, :agent_mode, false),
         req_options: Keyword.get(opts, :req_options, [])
       }
-      {:ok, Map.put(state, :base_req, HTTP.base_request(Map.to_list(state)))}
+      base_req = HTTP.base_request(Map.to_list(state))
+
+      with {:ok, auth_state} <- maybe_init_auth(auth_validated, base_req) do
+        {:ok, state |> Map.put(:base_req, base_req) |> Map.put(:auth, auth_state)}
+      end
     end
   end
 
@@ -76,10 +84,18 @@ defmodule RotatingSecrets.Source.Vault.KvV2 do
   """
   @spec load(map()) :: {:ok, binary(), map(), map()} | {:error, atom(), map()}
   @impl RotatingSecrets.Source
-  def load(state) do
+  def load(%{auth: auth, base_req: base_req} = state) when not is_nil(auth) do
+    case AuthJwtSvid.ensure_fresh(auth, base_req) do
+      {:ok, fresh_req, new_auth} -> do_load(fresh_req, %{state | auth: new_auth})
+      {:error, reason} -> {:error, reason, state}
+    end
+  end
+  def load(state), do: do_load(state.base_req, state)
+
+  defp do_load(base_req, state) do
     url_path = "/v1/#{state.mount}/data/#{state.path}"
 
-    case HTTP.get(state.base_req, url_path) do
+    case HTTP.get(base_req, url_path) do
       {:ok, body} ->
         material = get_in(body, ["data", "data", state.key])
         version = get_in(body, ["data", "metadata", "version"])
@@ -165,4 +181,7 @@ defmodule RotatingSecrets.Source.Vault.KvV2 do
     hash = :crypto.hash(:sha256, data)
     Base.encode16(hash, case: :lower)
   end
+
+  defp maybe_init_auth(nil, _base_req), do: {:ok, nil}
+  defp maybe_init_auth({:jwt_svid, jwt_opts}, base_req), do: AuthJwtSvid.init(jwt_opts, base_req)
 end

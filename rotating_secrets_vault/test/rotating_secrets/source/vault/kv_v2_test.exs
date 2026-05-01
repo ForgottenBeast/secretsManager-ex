@@ -1,17 +1,44 @@
 defmodule RotatingSecrets.Source.Vault.KvV2Test do
   @moduledoc false
 
-  use ExUnit.Case, async: true
+  # async: false because JWT-SVID tests use a global SpiffeEx.Registry process
+  use ExUnit.Case, async: false
 
   alias RotatingSecrets.Source.Vault.KvV2
 
   @stub_name :kv_v2_test
+  @jwt_svid_stub_name :kv_v2_jwt_svid_test
   @valid_opts [
     address: "http://127.0.0.1:8200",
     mount: "secret",
     path: "myapp/db",
     token: "s.sekret-token"
   ]
+
+  @kv_v2_spiffe_name :kv_v2_test_spiffe_ex
+
+  # Fake WorkloadAPI for JWT-SVID tests
+  defmodule FakeWorkloadAPI do
+    @behaviour SpiffeEx.WorkloadAPI
+
+    @impl true
+    def fetch_jwt_svid(_endpoint, _audience, _grpc_opts) do
+      svid = %SpiffeEx.SVID{
+        token: "fake-jwt-svid-token",
+        spiffe_id: "spiffe://test/workload",
+        expires_at: DateTime.add(DateTime.utc_now(), 3600, :second)
+      }
+
+      {:ok, svid}
+    end
+  end
+
+  setup_all do
+    # Start a single SpiffeEx supervisor for the module.
+    # SpiffeEx.Registry is a global named process — only one instance can exist.
+    start_supervised!({SpiffeEx, [name: @kv_v2_spiffe_name, endpoint: "unix:/fake/spire.sock", workload_api_mod: FakeWorkloadAPI]})
+    :ok
+  end
 
   defp stub_opts(extra \\ []) do
     @valid_opts
@@ -185,6 +212,70 @@ defmodule RotatingSecrets.Source.Vault.KvV2Test do
       opts = stub_opts()
       {:ok, state} = KvV2.init(opts)
       assert {:ok, _, _, _} = KvV2.load(state)
+    end
+  end
+
+  describe "init/1 - jwt_svid auth" do
+    test "state has :auth key when auth: {:jwt_svid, ...} provided" do
+      Req.Test.stub(@jwt_svid_stub_name, fn conn ->
+        Req.Test.json(conn, %{
+          "auth" => %{"client_token" => "s.jwt-token", "lease_duration" => 3600}
+        })
+      end)
+
+      opts = [
+        address: "http://127.0.0.1:8200",
+        mount: "secret",
+        path: "myapp/db",
+        auth: {:jwt_svid, [spiffe_ex: @kv_v2_spiffe_name, audience: "https://vault.example.com", role: "my-role"]},
+        req_options: [plug: {Req.Test, @jwt_svid_stub_name}]
+      ]
+
+      assert {:ok, state} = KvV2.init(opts)
+      assert state.auth != nil
+      assert state.auth.vault_token == "s.jwt-token"
+    end
+  end
+
+  describe "load/1 - jwt_svid dispatch" do
+    test "ensure_fresh is called and fresh token used for load" do
+      # First stub call: vault login during init
+      Req.Test.stub(@jwt_svid_stub_name, fn conn ->
+        cond do
+          String.ends_with?(conn.request_path, "/login") ->
+            Req.Test.json(conn, %{
+              "auth" => %{"client_token" => "s.jwt-token", "lease_duration" => 3600}
+            })
+
+          true ->
+            Req.Test.json(conn, %{
+              "data" => %{
+                "data" => %{"value" => "jwt-secret-value"},
+                "metadata" => %{"version" => 1}
+              }
+            })
+        end
+      end)
+
+      opts = [
+        address: "http://127.0.0.1:8200",
+        mount: "secret",
+        path: "myapp/db",
+        auth: {:jwt_svid, [spiffe_ex: @kv_v2_spiffe_name, audience: "https://vault.example.com", role: "my-role"]},
+        req_options: [plug: {Req.Test, @jwt_svid_stub_name}]
+      ]
+
+      {:ok, state} = KvV2.init(opts)
+      assert {:ok, "jwt-secret-value", _meta, _new_state} = KvV2.load(state)
+    end
+
+    test "static-token load/1 still works (regression)" do
+      Req.Test.stub(@stub_name, fn conn -> happy_response(conn, "static-secret", 2) end)
+
+      opts = stub_opts()
+      {:ok, state} = KvV2.init(opts)
+      assert {:ok, "static-secret", meta, _state} = KvV2.load(state)
+      assert meta.version == 2
     end
   end
 
