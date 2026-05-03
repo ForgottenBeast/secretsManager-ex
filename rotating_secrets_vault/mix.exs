@@ -33,7 +33,7 @@ defmodule RotatingSecretsVault.MixProject do
       # NOTE: switch to {:rotating_secrets, "~> 0.1"} before publishing to Hex
       # req ~> 0.5: verify against your project's mix.lock before upgrading
       {:rotating_secrets, path: "../rotating_secrets"},
-      {:spiffe_ex, github: "QuentinMallet/spiffe-ex", ref: "093352d98152718f9b5060c6c1e4fe3533c916f9", override: true},
+      {:spiffe_ex, github: "QuentinMallet/spiffe-ex", ref: "e3e837f865bbc8958818709ab309bedd07e2e5e8", override: true},
       {:req, "~> 0.5"},
       {:jason, "~> 1.4"},
       {:plug, "~> 1.16", only: :test},

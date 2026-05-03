@@ -49,16 +49,17 @@ defmodule RotatingSecrets.Source.Vault do
                  path: "myapp/api_key",
                  token: System.fetch_env!("VAULT_TOKEN")})
 
-      # Authenticate via SPIRE JWT-SVID → Zitadel OIDC → OpenBao (requires SpiffeEx
-      # configured with provider_uri pointing to your Zitadel instance):
+      # Authenticate via SPIRE JWT-SVID → OpenBao (requires a running SpiffeEx instance):
       RotatingSecrets.register(:api_key,
         source: {RotatingSecrets.Source.Vault.KvV2,
                  address: "http://127.0.0.1:8200",
                  mount: "secret",
                  path: "myapp/api_key",
-                 auth: {:zitadel_oidc, [
+                 auth: {:jwt_svid, [
                    spiffe_ex: MyApp.SpiffeEx,
-                   role: "my-openbao-role"
+                   audience: "openbao",
+                   role: "my-openbao-role",
+                   mount: "jwt-spire"
                  ]}})
 
       # Authenticate via generic OIDC client_credentials → OpenBao:

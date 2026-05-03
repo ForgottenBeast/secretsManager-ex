@@ -51,26 +51,6 @@ defmodule RotatingSecrets.Source.Vault.OptsTest do
       assert {:error, {:invalid_option, :auth}} = Opts.validate_auth("bad")
     end
 
-    test "accepts {:zitadel_oidc, opts} with required fields" do
-      assert {:ok, {:zitadel_oidc, _}} =
-               Opts.validate_auth({:zitadel_oidc, [spiffe_ex: MySpiffe, role: "my-role"]})
-    end
-
-    test "accepts {:zitadel_oidc, opts} with optional mount" do
-      assert {:ok, {:zitadel_oidc, _}} =
-               Opts.validate_auth({:zitadel_oidc, [spiffe_ex: MySpiffe, role: "my-role", mount: "custom"]})
-    end
-
-    test "rejects {:zitadel_oidc, opts} missing :spiffe_ex" do
-      assert {:error, {:invalid_option, :spiffe_ex}} =
-               Opts.validate_auth({:zitadel_oidc, [role: "my-role"]})
-    end
-
-    test "rejects {:zitadel_oidc, opts} missing :role" do
-      assert {:error, {:invalid_option, :role}} =
-               Opts.validate_auth({:zitadel_oidc, [spiffe_ex: MySpiffe]})
-    end
-
     test "accepts {:oidc, opts} with all required fields" do
       assert {:ok, {:oidc, _}} =
                Opts.validate_auth({:oidc, [

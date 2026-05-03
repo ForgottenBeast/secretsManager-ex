@@ -34,7 +34,6 @@ defmodule RotatingSecrets.Source.Vault.Opts do
   def validate_auth({:jwt_svid, jwt_opts}) when is_list(jwt_opts) do
     validate_jwt_svid_auth(jwt_opts)
   end
-  def validate_auth({:zitadel_oidc, opts}) when is_list(opts), do: validate_zitadel_oidc_auth(opts)
   def validate_auth({:oidc, opts}) when is_list(opts), do: validate_oidc_auth(opts)
   def validate_auth(_), do: {:error, {:invalid_option, :auth}}
 
@@ -44,13 +43,6 @@ defmodule RotatingSecrets.Source.Vault.Opts do
          {:ok, _} <- fetch_required_string(opts, :audience),
          {:ok, _} <- fetch_required_string(opts, :role) do
       {:ok, {:jwt_svid, opts}}
-    end
-  end
-
-  defp validate_zitadel_oidc_auth(opts) do
-    with {:ok, _} <- fetch_required_atom(opts, :spiffe_ex),
-         {:ok, _} <- fetch_required_string(opts, :role) do
-      {:ok, {:zitadel_oidc, opts}}
     end
   end
 
