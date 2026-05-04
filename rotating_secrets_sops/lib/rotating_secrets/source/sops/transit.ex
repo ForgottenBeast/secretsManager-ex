@@ -170,17 +170,11 @@ defmodule RotatingSecrets.Source.Sops.Transit do
   def handle_change_notification(_msg, _state), do: :ignored
 
   @impl RotatingSecrets.Source
-  def terminate(%{watcher_pid: pid}) when is_pid(pid) do
-    GenServer.stop(pid)
+  def terminate(%{watcher_pid: pid, timer_ref: ref}) do
+    if is_pid(pid), do: GenServer.stop(pid)
+    if is_reference(ref), do: Process.cancel_timer(ref)
     :ok
   end
-
-  def terminate(%{timer_ref: ref}) when is_reference(ref) do
-    Process.cancel_timer(ref)
-    :ok
-  end
-
-  def terminate(_state), do: :ok
 
   # ---------------------------------------------------------------------------
   # Private helpers (same as Source.Sops)
@@ -238,7 +232,7 @@ defmodule RotatingSecrets.Source.Sops.Transit do
   defp fetch_sops_args(opts) do
     case Keyword.get(opts, :sops_args, []) do
       args when is_list(args) ->
-        if Enum.all?(args, &is_binary/1) do
+        if Enum.all?(args, &(is_binary(&1) and not String.contains?(&1, "\0"))) do
           {:ok, args}
         else
           {:error, {:invalid_option, {:sops_args, args}}}

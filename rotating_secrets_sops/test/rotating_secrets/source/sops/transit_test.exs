@@ -62,6 +62,11 @@ defmodule RotatingSecrets.Source.Sops.TransitTest do
       assert {:error, {:invalid_option, {:sops_args, "--v"}}} =
                Transit.init(path: "/tmp/key.enc", mode: {:interval, 500}, sops_args: "--v")
     end
+
+    test "returns error when :sops_args contains null byte" do
+      assert {:error, {:invalid_option, {:sops_args, _}}} =
+               Transit.init(path: "/tmp/key.enc", mode: {:interval, 500}, sops_args: ["--config\0/evil"])
+    end
   end
 
   # ---------------------------------------------------------------------------

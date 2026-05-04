@@ -121,6 +121,11 @@ defmodule RotatingSecrets.Source.SopsTest do
                Sops.init(path: "/tmp/s.enc", mode: {:interval, 500}, sops_args: [:verbose])
     end
 
+    test "returns error when :sops_args contains null byte" do
+      assert {:error, {:invalid_option, {:sops_args, _}}} =
+               Sops.init(path: "/tmp/s.enc", mode: {:interval, 500}, sops_args: ["--config\0/evil"])
+    end
+
     test "returns error for invalid :timeout" do
       assert {:error, {:invalid_option, {:timeout, 0}}} =
                Sops.init(path: "/tmp/s.enc", mode: {:interval, 500}, timeout: 0)
