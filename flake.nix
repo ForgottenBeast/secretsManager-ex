@@ -218,6 +218,10 @@
             postgresql # provides pg_ctl, initdb, pg_isready for local ephemeral DB tests
             openbao    # provides bao binary; test_helper.exs finds it via System.find_executable/1
 
+            # SOPS integration tests
+            sops       # provides sops binary; sops_integration_test.exs skips if absent
+            age        # provides age-keygen; used to generate ephemeral keys in sops tests
+
             # Database clients (optional, uncomment if needed)
             # sqlite
 
