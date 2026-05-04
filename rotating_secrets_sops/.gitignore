@@ -1,0 +1,6 @@
+/_build/
+/deps/
+/priv/plts/
+/.elixir_ls/
+*.ez
+erl_crash.dump
