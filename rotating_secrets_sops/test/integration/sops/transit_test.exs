@@ -127,7 +127,9 @@ defmodule RotatingSecretsSops.Integration.TransitTest do
     raw_key = :crypto.strong_rand_bytes(32)
     enc_file = encrypt_key!(raw_key, Path.join(dir, "ops_key.enc"), pubkey, key_file)
 
-    {:ok, state} = Transit.init(path: enc_file, mode: {:interval, 60_000}, cmd_fn: sops_cmd_fn(key_file))
+    {:ok, state} =
+      Transit.init(path: enc_file, mode: {:interval, 60_000}, cmd_fn: sops_cmd_fn(key_file))
+
     {:ok, key, _meta, _state} = Transit.load(state)
 
     plaintext = "the quick brown fox"
@@ -145,7 +147,9 @@ defmodule RotatingSecretsSops.Integration.TransitTest do
     raw_key = :crypto.strong_rand_bytes(32)
     enc_file = encrypt_key!(raw_key, Path.join(dir, "iv_key.enc"), pubkey, key_file)
 
-    {:ok, state} = Transit.init(path: enc_file, mode: {:interval, 60_000}, cmd_fn: sops_cmd_fn(key_file))
+    {:ok, state} =
+      Transit.init(path: enc_file, mode: {:interval, 60_000}, cmd_fn: sops_cmd_fn(key_file))
+
     {:ok, key, _meta, _state} = Transit.load(state)
 
     plaintext = "same plaintext every time"
@@ -163,7 +167,9 @@ defmodule RotatingSecretsSops.Integration.TransitTest do
     raw_key = :crypto.strong_rand_bytes(32)
     enc_file = encrypt_key!(raw_key, Path.join(dir, "tamper_key.enc"), pubkey, key_file)
 
-    {:ok, state} = Transit.init(path: enc_file, mode: {:interval, 60_000}, cmd_fn: sops_cmd_fn(key_file))
+    {:ok, state} =
+      Transit.init(path: enc_file, mode: {:interval, 60_000}, cmd_fn: sops_cmd_fn(key_file))
+
     {:ok, key, _meta, _state} = Transit.load(state)
 
     {:ok, ciphertext} = Operations.encrypt(key, "sensitive data")

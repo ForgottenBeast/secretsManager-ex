@@ -83,13 +83,10 @@ defmodule RotatingSecrets.Source.Sops.Transit do
       {output, 0} ->
         case byte_size(output) do
           32 ->
-            raw_hash = :crypto.hash(:sha256, output)
-            hash = Base.encode16(raw_hash, case: :lower)
-
             meta = %{
               version: nil,
               ttl_seconds: nil,
-              content_hash: hash,
+              content_hash: sha256_hex(output),
               key_length: 32
             }
 
@@ -188,6 +185,11 @@ defmodule RotatingSecrets.Source.Sops.Transit do
   # ---------------------------------------------------------------------------
   # Private helpers (same as Source.Sops)
   # ---------------------------------------------------------------------------
+
+  defp sha256_hex(data) do
+    raw = :crypto.hash(:sha256, data)
+    Base.encode16(raw, case: :lower)
+  end
 
   defp run_sops(state, args) do
     task = Task.async(fn -> state.cmd_fn.(state.sops_binary, args, stderr_to_stdout: true) end)

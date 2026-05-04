@@ -112,7 +112,9 @@ defmodule RotatingSecretsSops.Integration.SourceTest do
     plaintext = "hash-check-value"
     enc_file = encrypt_raw!(plaintext, Path.join(dir, "hash.enc"), pubkey, key_file)
 
-    {:ok, state} = Sops.init(path: enc_file, mode: {:interval, 60_000}, cmd_fn: sops_cmd_fn(key_file))
+    {:ok, state} =
+      Sops.init(path: enc_file, mode: {:interval, 60_000}, cmd_fn: sops_cmd_fn(key_file))
+
     {:ok, _material, meta, _state} = Sops.load(state)
 
     expected = Base.encode16(:crypto.hash(:sha256, plaintext), case: :lower)
@@ -126,7 +128,9 @@ defmodule RotatingSecretsSops.Integration.SourceTest do
   } do
     enc_file = encrypt_raw!("stable", Path.join(dir, "stable.enc"), pubkey, key_file)
 
-    {:ok, state} = Sops.init(path: enc_file, mode: {:interval, 60_000}, cmd_fn: sops_cmd_fn(key_file))
+    {:ok, state} =
+      Sops.init(path: enc_file, mode: {:interval, 60_000}, cmd_fn: sops_cmd_fn(key_file))
+
     {:ok, _, meta1, state} = Sops.load(state)
     {:ok, _, meta2, _state} = Sops.load(state)
 

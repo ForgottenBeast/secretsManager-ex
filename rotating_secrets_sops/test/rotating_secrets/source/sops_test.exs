@@ -241,10 +241,7 @@ defmodule RotatingSecrets.Source.SopsTest do
       state = init!(format: :json, cmd_fn: capture_cmd)
       Sops.load(state)
 
-      assert_received {:args, args}
-      assert "--output-type" in args
-      json_idx = Enum.find_index(args, &(&1 == "--output-type"))
-      assert Enum.at(args, json_idx + 1) == "json"
+      assert_received {:args, ["--decrypt", "--output-type", "json", "/tmp/secret.enc"]}
     end
 
     test "uses --output-type binary for :raw format" do
@@ -258,9 +255,7 @@ defmodule RotatingSecrets.Source.SopsTest do
       state = init!(cmd_fn: capture_cmd)
       Sops.load(state)
 
-      assert_received {:args, args}
-      bin_idx = Enum.find_index(args, &(&1 == "--output-type"))
-      assert Enum.at(args, bin_idx + 1) == "binary"
+      assert_received {:args, ["--decrypt", "--output-type", "binary", "/tmp/secret.enc"]}
     end
   end
 
@@ -346,7 +341,7 @@ defmodule RotatingSecrets.Source.SopsTest do
     end
 
     property "interval with non-positive ms fails" do
-      check all(ms <- integer(), ms <= 0) do
+      check all(ms <- map(non_negative_integer(), &(-&1))) do
         assert {:error, {:invalid_option, {:mode, {:interval, ^ms}}}} =
                  Sops.init(path: "/tmp/s.enc", mode: {:interval, ms})
       end

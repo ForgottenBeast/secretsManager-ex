@@ -144,9 +144,7 @@ defmodule RotatingSecrets.Source.Sops.TransitTest do
       state = init!(cmd_fn: capture_cmd)
       Transit.load(state)
 
-      assert_received {:args, args}
-      bin_idx = Enum.find_index(args, &(&1 == "--output-type"))
-      assert Enum.at(args, bin_idx + 1) == "binary"
+      assert_received {:args, ["--decrypt", "--output-type", "binary", "/tmp/key.enc"]}
     end
   end
 

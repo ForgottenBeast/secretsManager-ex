@@ -122,10 +122,9 @@ defmodule RotatingSecrets.Source.Sops do
 
     case run_sops(state, args) do
       {output, 0} ->
-        material = parse_output(output, state.format)
         hash = sha256_hex(output)
         meta = %{version: nil, ttl_seconds: nil, content_hash: hash}
-        {:ok, material, meta, state}
+        {:ok, output, meta, state}
 
       {_output, @sops_exit_not_found} ->
         {:error, :not_found, state}
@@ -251,9 +250,6 @@ defmodule RotatingSecrets.Source.Sops do
 
   defp output_type(:raw), do: "binary"
   defp output_type(:json), do: "json"
-
-  defp parse_output(output, :raw), do: output
-  defp parse_output(output, :json), do: output
 
   defp sha256_hex(data) do
     raw = :crypto.hash(:sha256, data)
