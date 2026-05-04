@@ -29,8 +29,9 @@ defmodule RotatingSecrets.FailSoftPropertiesTest do
             error <- Generators.transient_error(),
             max_runs: 20
           ) do
+      # unique test atom, not user-controlled
       # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-      name = :"prop_fail_soft_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
+      name = :"prop_fail_soft_#{System.unique_integer([:positive])}"
       calls = :counters.new(1, [:atomics])
 
       MockSource

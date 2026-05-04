@@ -24,8 +24,9 @@ defmodule RotatingSecrets.Cluster.ClusterStatusTest do
   end
 
   test "cluster_status/1 returns empty map when no other nodes are connected" do
+    # unique test atom, not user-controlled
     # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-    name = :"cluster_status_empty_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
+    name = :"cluster_status_empty_#{System.unique_integer([:positive])}"
 
     MockSource
     |> stub(:init, fn _opts -> {:ok, %{}} end)
@@ -33,15 +34,18 @@ defmodule RotatingSecrets.Cluster.ClusterStatusTest do
       {:ok, "local-only-value", %{version: 7}, state}
     end)
 
-    start_supervised!({Registry, [name: name, source: MockSource, source_opts: [], fallback_interval_ms: 60_000]})
+    start_supervised!(
+      {Registry, [name: name, source: MockSource, source_opts: [], fallback_interval_ms: 60_000]}
+    )
 
     # No connected nodes → empty map (cluster_status only queries Node.list())
     assert RotatingSecrets.cluster_status(name) == %{}
   end
 
   test "cluster_status/1 returns {:error, :noconnection} for unreachable nodes" do
+    # unique test atom, not user-controlled
     # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-    name = :"cluster_status_unreachable_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
+    name = :"cluster_status_unreachable_#{System.unique_integer([:positive])}"
 
     MockSource
     |> stub(:init, fn _opts -> {:ok, %{}} end)
@@ -49,12 +53,15 @@ defmodule RotatingSecrets.Cluster.ClusterStatusTest do
       {:ok, "secret-material", %{version: 1}, state}
     end)
 
-    start_supervised!({Registry, [name: name, source: MockSource, source_opts: [], fallback_interval_ms: 60_000]})
+    start_supervised!(
+      {Registry, [name: name, source: MockSource, source_opts: [], fallback_interval_ms: 60_000]}
+    )
 
     # Pretend a node is in Node.list() by connecting then immediately disconnecting;
     # use a fake node name that never had a connection to force badrpc/noconnection
+    # unique test atom, not user-controlled
     # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-    fake_node = :"fake_node_#{System.unique_integer([:positive])}@127.0.0.1"  # unique test atom, not user-controlled
+    fake_node = :"fake_node_#{System.unique_integer([:positive])}@127.0.0.1"
 
     # We can test the error path directly via the module function
     # by observing that an rpc to a non-existent node returns {:badrpc, :nodedown}
@@ -64,8 +71,9 @@ defmodule RotatingSecrets.Cluster.ClusterStatusTest do
   end
 
   test "cluster_status/1 result never contains secret values" do
+    # unique test atom, not user-controlled
     # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-    name = :"cluster_status_no_leak_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
+    name = :"cluster_status_no_leak_#{System.unique_integer([:positive])}"
 
     MockSource
     |> stub(:init, fn _opts -> {:ok, %{}} end)
@@ -73,7 +81,9 @@ defmodule RotatingSecrets.Cluster.ClusterStatusTest do
       {:ok, "top-secret-material", %{version: 99}, state}
     end)
 
-    start_supervised!({Registry, [name: name, source: MockSource, source_opts: [], fallback_interval_ms: 60_000]})
+    start_supervised!(
+      {Registry, [name: name, source: MockSource, source_opts: [], fallback_interval_ms: 60_000]}
+    )
 
     status = RotatingSecrets.cluster_status(name)
 
@@ -96,8 +106,9 @@ defmodule RotatingSecrets.Cluster.ClusterStatusTest do
   end
 
   test "version_and_meta/1 returns {:ok, version, meta} for a valid local secret" do
+    # unique test atom, not user-controlled
     # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-    name = :"version_meta_local_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
+    name = :"version_meta_local_#{System.unique_integer([:positive])}"
 
     MockSource
     |> stub(:init, fn _opts -> {:ok, %{}} end)
@@ -105,7 +116,9 @@ defmodule RotatingSecrets.Cluster.ClusterStatusTest do
       {:ok, "local-val", %{version: 5, ttl_seconds: 300}, state}
     end)
 
-    start_supervised!({Registry, [name: name, source: MockSource, source_opts: [], fallback_interval_ms: 60_000]})
+    start_supervised!(
+      {Registry, [name: name, source: MockSource, source_opts: [], fallback_interval_ms: 60_000]}
+    )
 
     assert {:ok, 5, %{version: 5, ttl_seconds: 300}} =
              RotatingSecrets.Registry.version_and_meta(name)

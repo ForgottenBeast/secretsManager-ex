@@ -37,8 +37,9 @@ defmodule RotatingSecrets.Cluster.HordeMigrationTest do
   end
 
   test "child_spec contains no closures, PIDs, or refs" do
+    # unique test atom, not user-controlled
     # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-    name = :"horde_spec_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
+    name = :"horde_spec_#{System.unique_integer([:positive])}"
     opts = [name: name, source: MockSource, source_opts: [], fallback_interval_ms: 60_000]
 
     spec = RotatingSecrets.Registry.child_spec(opts)
@@ -57,8 +58,9 @@ defmodule RotatingSecrets.Cluster.HordeMigrationTest do
   end
 
   test "Registry restarts from the original child_spec and subscribers survive" do
+    # unique test atom, not user-controlled
     # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-    name = :"horde_migration_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
+    name = :"horde_migration_#{System.unique_integer([:positive])}"
     calls = :counters.new(1, [:atomics])
 
     MockSource

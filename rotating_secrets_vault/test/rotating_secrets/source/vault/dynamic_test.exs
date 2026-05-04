@@ -15,7 +15,7 @@ defmodule RotatingSecrets.Source.Vault.DynamicTest do
 
   defp stub_opts(extra \\ []) do
     @valid_opts
-    |> Keyword.put(:req_options, [plug: {Req.Test, @stub_name}])
+    |> Keyword.put(:req_options, plug: {Req.Test, @stub_name})
     |> Keyword.merge(extra)
   end
 

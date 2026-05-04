@@ -12,8 +12,9 @@ defmodule RotatingSecretsTest do
     :ok
   end
 
+  # unique test atom, not user-controlled
   # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-  defp unique_name, do: :"facade_test_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
+  defp unique_name, do: :"facade_test_#{System.unique_integer([:positive])}"
 
   defp register_memory_secret(name, value \\ "test-secret") do
     {:ok, pid} =
@@ -32,19 +33,24 @@ defmodule RotatingSecretsTest do
   describe "register/2" do
     test "starts a secret process and returns {:ok, pid}" do
       name = unique_name()
-      assert {:ok, pid} = RotatingSecrets.register(name,
-        source: MemorySource,
-        source_opts: [name: name, initial_value: "val"]
-      )
+
+      assert {:ok, pid} =
+               RotatingSecrets.register(name,
+                 source: MemorySource,
+                 source_opts: [name: name, initial_value: "val"]
+               )
+
       assert Process.alive?(pid)
     end
 
     test "returns {:error, _} when source init fails" do
       name = unique_name()
-      assert {:error, _} = RotatingSecrets.register(name,
-        source: MemorySource,
-        source_opts: [name: name]
-      )
+
+      assert {:error, _} =
+               RotatingSecrets.register(name,
+                 source: MemorySource,
+                 source_opts: [name: name]
+               )
     end
   end
 

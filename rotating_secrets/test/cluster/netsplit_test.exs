@@ -33,8 +33,9 @@ defmodule RotatingSecrets.Cluster.NetsplitTest do
     File.write!(path, "pre-split-value\n")
     on_exit(fn -> File.rm_rf!(dir) end)
 
+    # unique test atom, not user-controlled
     # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-    name = :"netsplit_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
+    name = :"netsplit_#{System.unique_integer([:positive])}"
 
     for node <- [node_a, node_b] do
       {:ok, _} =
@@ -86,8 +87,9 @@ defmodule RotatingSecrets.Cluster.NetsplitTest do
   end
 
   test "nodedown subscriber cleanup fires during partition", %{node_a: node_a, node_b: node_b} do
+    # unique test atom, not user-controlled
     # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-    name = :"netsplit_sub_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
+    name = :"netsplit_sub_#{System.unique_integer([:positive])}"
 
     # Register only on node_a
     dummy_path = Path.join(System.tmp_dir!(), "netsplit_dummy.txt")

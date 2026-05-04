@@ -16,7 +16,7 @@ defmodule RotatingSecrets.Source.Vault.KvV1Test do
 
   defp stub_opts(extra \\ []) do
     @valid_opts
-    |> Keyword.put(:req_options, [plug: {Req.Test, @stub_name}])
+    |> Keyword.put(:req_options, plug: {Req.Test, @stub_name})
     |> Keyword.merge(extra)
   end
 
@@ -113,8 +113,8 @@ defmodule RotatingSecrets.Source.Vault.KvV1Test do
       Req.Test.stub(:kv_v1_val_a, fn conn -> kv_response(conn, "password", "value-a") end)
       Req.Test.stub(:kv_v1_val_b, fn conn -> kv_response(conn, "password", "value-b") end)
 
-      opts_a = Keyword.put(@valid_opts, :req_options, [plug: {Req.Test, :kv_v1_val_a}])
-      opts_b = Keyword.put(@valid_opts, :req_options, [plug: {Req.Test, :kv_v1_val_b}])
+      opts_a = Keyword.put(@valid_opts, :req_options, plug: {Req.Test, :kv_v1_val_a})
+      opts_b = Keyword.put(@valid_opts, :req_options, plug: {Req.Test, :kv_v1_val_b})
 
       {:ok, state_a} = KvV1.init(opts_a)
       {:ok, state_b} = KvV1.init(opts_b)

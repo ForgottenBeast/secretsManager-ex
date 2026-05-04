@@ -90,8 +90,9 @@ defmodule RotatingSecrets.TelemetryCanaryTest do
     end
 
     test "handle_change_notification error reason with :token is not logged verbatim" do
+      # unique test atom, not user-controlled
       # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-      name = :"canary_c2_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
+      name = :"canary_c2_#{System.unique_integer([:positive])}"
 
       stub(MockSource, :handle_change_notification, fn _msg, _state ->
         {:error, %{token: "canary_c2_secret"}}
@@ -130,8 +131,9 @@ defmodule RotatingSecrets.TelemetryCanaryTest do
     end
 
     test "no telemetry event metadata contains the secret material or sensitive opts" do
+      # unique test atom, not user-controlled
       # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-      name = :"audit_lifecycle_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
+      name = :"audit_lifecycle_#{System.unique_integer([:positive])}"
       test_pid = self()
 
       handler_id = "audit-lifecycle-#{System.unique_integer([:positive])}"
@@ -164,13 +166,15 @@ defmodule RotatingSecrets.TelemetryCanaryTest do
 
       for metadata <- events do
         serialized = inspect(metadata)
+
         refute serialized =~ "audit_material",
                "telemetry metadata exposed secret material: #{serialized}"
+
         refute serialized =~ "audit_token",
                "telemetry metadata exposed token: #{serialized}"
       end
 
-      assert length(events) > 0, "expected at least one telemetry event during lifecycle"
+      assert events != [], "expected at least one telemetry event during lifecycle"
     end
   end
 

@@ -39,8 +39,9 @@ defmodule RotatingSecrets.Cluster.NodedownTest do
   end
 
   test "subscriber on remote node removed when node disconnects", %{remote_node: remote_node} do
+    # unique test atom, not user-controlled
     # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-    name = :"nodedown_sub_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
+    name = :"nodedown_sub_#{System.unique_integer([:positive])}"
 
     {:ok, _pid} =
       RotatingSecrets.register(name,
@@ -100,8 +101,9 @@ defmodule RotatingSecrets.Cluster.NodedownTest do
   end
 
   test "local registry is unaffected by nodedown for local-only subscribers" do
+    # unique test atom, not user-controlled
     # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-    name = :"nodedown_local_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
+    name = :"nodedown_local_#{System.unique_integer([:positive])}"
 
     {:ok, _} =
       RotatingSecrets.register(name,
@@ -119,7 +121,7 @@ defmodule RotatingSecrets.Cluster.NodedownTest do
     assert map_size(state.subscribers) == 1
 
     # Simulate nodedown for an unrelated node — local subscriber must be kept
-    send(registry_pid, {:nodedown, :"unrelated@nowhere"})
+    send(registry_pid, {:nodedown, :unrelated@nowhere})
     Process.sleep(30)
 
     state_after = :sys.get_state(registry_pid)

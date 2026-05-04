@@ -22,8 +22,9 @@ defmodule RotatingSecrets.SubscriberResilienceTest do
   end
 
   test "remaining subscribers receive notification after one subscriber crashes" do
+    # unique test atom, not user-controlled
     # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-    name = :"sub_resilience_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
+    name = :"sub_resilience_#{System.unique_integer([:positive])}"
     calls = :counters.new(1, [:atomics])
 
     MockSource
@@ -66,8 +67,9 @@ defmodule RotatingSecrets.SubscriberResilienceTest do
   end
 
   test "dead subscriber is removed from state before next rotation" do
+    # unique test atom, not user-controlled
     # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-    name = :"sub_cleanup_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
+    name = :"sub_cleanup_#{System.unique_integer([:positive])}"
 
     MockSource
     |> stub(:init, fn _opts -> {:ok, %{}} end)

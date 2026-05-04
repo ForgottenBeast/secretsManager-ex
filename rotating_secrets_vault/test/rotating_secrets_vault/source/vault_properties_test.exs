@@ -16,10 +16,12 @@ defmodule RotatingSecrets.Source.Vault.KvV2PropertiesTest do
   end
 
   property "init/1 never returns {:ok, state} with invalid required opts" do
-    check all opts <-
-                StreamData.list_of(
-                  StreamData.tuple({StreamData.atom(:alphanumeric), StreamData.term()})
-                ) do
+    check all(
+            opts <-
+              StreamData.list_of(
+                StreamData.tuple({StreamData.atom(:alphanumeric), StreamData.term()})
+              )
+          ) do
       result = KvV2.init(opts)
 
       if not has_required_string_opts?(opts) do
@@ -29,11 +31,13 @@ defmodule RotatingSecrets.Source.Vault.KvV2PropertiesTest do
   end
 
   property "init/1 never includes :token value in error reason" do
-    check all token <- StreamData.binary(min_length: 16),
-              opts <-
-                StreamData.list_of(
-                  StreamData.tuple({StreamData.atom(:alphanumeric), StreamData.term()})
-                ) do
+    check all(
+            token <- StreamData.binary(min_length: 16),
+            opts <-
+              StreamData.list_of(
+                StreamData.tuple({StreamData.atom(:alphanumeric), StreamData.term()})
+              )
+          ) do
       opts_with_token = Keyword.put(opts, :token, token)
 
       case KvV2.init(opts_with_token) do

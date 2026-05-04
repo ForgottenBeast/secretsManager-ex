@@ -21,8 +21,9 @@ defmodule RotatingSecrets.Source.MemoryTest do
   end
 
   defp unique_name do
+    # unique test atom, not user-controlled
     # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-    :"memory_test_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
+    :"memory_test_#{System.unique_integer([:positive])}"
   end
 
   describe "init/1" do

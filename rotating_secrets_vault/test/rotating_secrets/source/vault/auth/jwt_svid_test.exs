@@ -39,7 +39,11 @@ defmodule RotatingSecrets.Source.Vault.Auth.JwtSvidTest do
     # Start a single SpiffeEx supervisor shared across all tests.
     # SpiffeEx.Registry is a global named process, so we can only start it once.
     # start_supervised! ensures ExUnit manages the lifecycle via its supervision tree.
-    start_supervised!({SpiffeEx, [name: @spiffe_name, endpoint: "unix:/fake/spire.sock", workload_api_mod: FakeWorkloadAPI]})
+    start_supervised!(
+      {SpiffeEx,
+       [name: @spiffe_name, endpoint: "unix:/fake/spire.sock", workload_api_mod: FakeWorkloadAPI]}
+    )
+
     :ok
   end
 
@@ -130,7 +134,10 @@ defmodule RotatingSecrets.Source.Vault.Auth.JwtSvidTest do
       {:ok, auth_state} = JwtSvid.init(opts, base)
 
       # Force token to be near expiry (<=30s remaining)
-      near_expiry_auth = %{auth_state | token_expires_at: DateTime.add(DateTime.utc_now(), 10, :second)}
+      near_expiry_auth = %{
+        auth_state
+        | token_expires_at: DateTime.add(DateTime.utc_now(), 10, :second)
+      }
 
       Req.Test.stub(@stub_name, fn conn -> vault_login_response(conn, "s.new-token", 3600) end)
 

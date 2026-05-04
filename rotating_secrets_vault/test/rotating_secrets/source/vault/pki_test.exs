@@ -39,7 +39,8 @@ defmodule RotatingSecrets.Source.Vault.PKITest do
     Req.Test.json(conn, %{
       "data" => %{
         "certificate" => cert_pem,
-        "private_key" => "-----BEGIN RSA PRIVATE KEY-----\nMIIBogIBAAJ\n-----END RSA PRIVATE KEY-----\n",
+        "private_key" =>
+          "-----BEGIN RSA PRIVATE KEY-----\nMIIBogIBAAJ\n-----END RSA PRIVATE KEY-----\n",
         "issuing_ca" => "-----BEGIN CERTIFICATE-----\nMIIBCA\n-----END CERTIFICATE-----\n",
         "ca_chain" => ["-----BEGIN CERTIFICATE-----\nMIIBCA\n-----END CERTIFICATE-----\n"],
         "serial_number" => serial

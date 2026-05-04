@@ -24,8 +24,9 @@ defmodule RotatingSecrets.SourceResilienceTest do
   end
 
   test "Registry stays alive when source.load raises during refresh" do
+    # unique test atom, not user-controlled
     # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-    name = :"source_resilience_raise_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
+    name = :"source_resilience_raise_#{System.unique_integer([:positive])}"
     calls = :counters.new(1, [:atomics])
 
     MockSource
@@ -67,8 +68,9 @@ defmodule RotatingSecrets.SourceResilienceTest do
   end
 
   test "Registry stays alive when source.load throws" do
+    # unique test atom, not user-controlled
     # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-    name = :"source_resilience_throw_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
+    name = :"source_resilience_throw_#{System.unique_integer([:positive])}"
     calls = :counters.new(1, [:atomics])
 
     MockSource
@@ -102,8 +104,9 @@ defmodule RotatingSecrets.SourceResilienceTest do
   end
 
   test "load exception emits [:rotating_secrets, :source, :load, :exception] telemetry" do
+    # unique test atom, not user-controlled
     # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-    name = :"source_resilience_telemetry_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
+    name = :"source_resilience_telemetry_#{System.unique_integer([:positive])}"
     calls = :counters.new(1, [:atomics])
     test_pid = self()
     handler_id = "resilience-exception-#{System.unique_integer([:positive])}"

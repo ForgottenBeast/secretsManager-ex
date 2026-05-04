@@ -23,8 +23,9 @@ defmodule RotatingSecrets.RegistryTest do
   @meta %{version: 1, content_hash: "abc"}
 
   defp start_registry(extra_opts \\ []) do
+    # unique test atom, not user-controlled
     # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-    name = :"test_registry_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
+    name = :"test_registry_#{System.unique_integer([:positive])}"
 
     opts =
       [
@@ -78,7 +79,9 @@ defmodule RotatingSecrets.RegistryTest do
       |> expect(:load, fn state -> {:error, :enoent, state} end)
 
       %{opts: opts} = start_registry()
-      assert {:error, {{:permanent_load_failure, :enoent}, _}} = start_supervised({Registry, opts})
+
+      assert {:error, {{:permanent_load_failure, :enoent}, _}} =
+               start_supervised({Registry, opts})
     end
 
     test "returns :permanent_load_failure on :eacces" do
@@ -87,7 +90,9 @@ defmodule RotatingSecrets.RegistryTest do
       |> expect(:load, fn state -> {:error, :eacces, state} end)
 
       %{opts: opts} = start_registry()
-      assert {:error, {{:permanent_load_failure, :eacces}, _}} = start_supervised({Registry, opts})
+
+      assert {:error, {{:permanent_load_failure, :eacces}, _}} =
+               start_supervised({Registry, opts})
     end
 
     test "returns :transient_load_failure on network error" do
@@ -96,13 +101,16 @@ defmodule RotatingSecrets.RegistryTest do
       |> expect(:load, fn state -> {:error, :timeout, state} end)
 
       %{opts: opts} = start_registry()
-      assert {:error, {{:transient_load_failure, :timeout}, _}} = start_supervised({Registry, opts})
+
+      assert {:error, {{:transient_load_failure, :timeout}, _}} =
+               start_supervised({Registry, opts})
     end
 
     test "stops with :source_init_failed when source.init fails" do
       stub(MockSource, :init, fn _opts -> {:error, {:invalid_option, :address}} end)
 
       %{opts: opts} = start_registry()
+
       {:error, {{:source_init_failed, {:invalid_option, :address}}, _}} =
         start_supervised({Registry, opts})
     end
@@ -268,7 +276,9 @@ defmodule RotatingSecrets.RegistryTest do
       |> expect(:load, fn state -> {:error, :not_found, state} end)
 
       %{opts: opts} = start_registry()
-      assert {:error, {{:permanent_load_failure, :not_found}, _}} = start_supervised({Registry, opts})
+
+      assert {:error, {{:permanent_load_failure, :not_found}, _}} =
+               start_supervised({Registry, opts})
     end
 
     test ":forbidden is classified as permanent" do
@@ -277,7 +287,9 @@ defmodule RotatingSecrets.RegistryTest do
       |> expect(:load, fn state -> {:error, :forbidden, state} end)
 
       %{opts: opts} = start_registry()
-      assert {:error, {{:permanent_load_failure, :forbidden}, _}} = start_supervised({Registry, opts})
+
+      assert {:error, {{:permanent_load_failure, :forbidden}, _}} =
+               start_supervised({Registry, opts})
     end
 
     test "{:invalid_option, _} is classified as permanent" do
@@ -286,6 +298,7 @@ defmodule RotatingSecrets.RegistryTest do
       |> expect(:load, fn state -> {:error, {:invalid_option, :bad}, state} end)
 
       %{opts: opts} = start_registry()
+
       assert {:error, {{:permanent_load_failure, {:invalid_option, :bad}}, _}} =
                start_supervised({Registry, opts})
     end
@@ -298,6 +311,7 @@ defmodule RotatingSecrets.RegistryTest do
       |> expect(:load, fn _state -> raise "boom" end)
 
       %{opts: opts} = start_registry()
+
       assert {:error, {{:transient_load_failure, {:exception, %RuntimeError{}}}, _}} =
                start_supervised({Registry, opts})
     end
@@ -308,13 +322,15 @@ defmodule RotatingSecrets.RegistryTest do
       |> expect(:load, fn _state -> throw(:kaboom) end)
 
       %{opts: opts} = start_registry()
+
       assert {:error, {{:transient_load_failure, {:exception, {:throw, :kaboom}}}, _}} =
                start_supervised({Registry, opts})
     end
   end
 
   describe "handle_info catch-all" do
-    test "ignores unrelated messages when source lacks handle_change_notification" do
+    test "ignores unrelated messages when handle_change_notification returns :ignored" do
+      stub(MockSource, :handle_change_notification, fn _msg, _state -> :ignored end)
       mock_load_ok()
       %{name: name, opts: opts} = start_registry()
       pid = start_supervised!({Registry, opts})
@@ -505,7 +521,7 @@ defmodule RotatingSecrets.RegistryTest do
       pid = start_supervised!({Registry, opts})
 
       # Send nodedown for a fake node, with no subscribers
-      send(pid, {:nodedown, :"fake@nowhere"})
+      send(pid, {:nodedown, :fake@nowhere})
       :timer.sleep(10)
 
       assert Process.alive?(pid)

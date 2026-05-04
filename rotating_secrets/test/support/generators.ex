@@ -8,8 +8,9 @@ defmodule RotatingSecrets.Generators do
   @doc "Generates a valid secret name atom."
   def secret_name do
     gen all(str <- string(:alphanumeric, min_length: 1, max_length: 20)) do
+      # unique test atom, not user-controlled
       # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-      String.to_atom("secret_" <> str)  # unique test atom, not user-controlled
+      String.to_atom("secret_" <> str)
     end
   end
 

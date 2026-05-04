@@ -77,10 +77,7 @@ defmodule RotatingSecrets.Supervisor do
     children = [
       {Registry, keys: :unique, name: @process_registry},
       {DynamicSupervisor,
-       strategy: :one_for_one,
-       name: @dynamic_sup,
-       max_restarts: 3,
-       max_seconds: 30}
+       strategy: :one_for_one, name: @dynamic_sup, max_restarts: 3, max_seconds: 30}
     ]
 
     # :rest_for_one ensures the DynamicSupervisor restarts if the ProcessRegistry

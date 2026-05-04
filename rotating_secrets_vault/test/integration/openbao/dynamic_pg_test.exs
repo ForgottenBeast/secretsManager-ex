@@ -52,11 +52,12 @@ defmodule RotatingSecretsVault.Integration.DynamicPgTest do
     {:ok, conn} = pg_connect(user, pass)
     on_exit(fn -> if Process.alive?(conn), do: GenServer.stop(conn) end)
 
-    result = Postgrex.query!(
-      conn,
-      "SELECT id, name, value FROM #{PgFixtures.table()} ORDER BY id",
-      []
-    )
+    result =
+      Postgrex.query!(
+        conn,
+        "SELECT id, name, value FROM #{PgFixtures.table()} ORDER BY id",
+        []
+      )
 
     assert result.rows == PgFixtures.rows()
   end
@@ -69,11 +70,12 @@ defmodule RotatingSecretsVault.Integration.DynamicPgTest do
     {:ok, conn} = pg_connect(user, pass)
     on_exit(fn -> if Process.alive?(conn), do: GenServer.stop(conn) end)
 
-    result = Postgrex.query!(
-      conn,
-      "SELECT value FROM #{PgFixtures.table()} WHERE name = $1",
-      ["beta"]
-    )
+    result =
+      Postgrex.query!(
+        conn,
+        "SELECT value FROM #{PgFixtures.table()} WHERE name = $1",
+        ["beta"]
+      )
 
     assert result.rows == [["second"]]
   end
@@ -160,14 +162,14 @@ defmodule RotatingSecretsVault.Integration.DynamicPgTest do
     #      returns {:error, reason} on auth failure rather than crashing the
     #      caller.
     case Postgrex.start_link(
-      hostname: System.get_env("PG_HOST", "127.0.0.1"),
-      port: String.to_integer(System.get_env("PG_PORT", "5432")),
-      database: System.get_env("PG_DB", "postgres"),
-      username: username,
-      password: password,
-      sync_connect: true,
-      backoff_type: :stop
-    ) do
+           hostname: System.get_env("PG_HOST", "127.0.0.1"),
+           port: String.to_integer(System.get_env("PG_PORT", "5432")),
+           database: System.get_env("PG_DB", "postgres"),
+           username: username,
+           password: password,
+           sync_connect: true,
+           backoff_type: :stop
+         ) do
       {:ok, conn} ->
         # Unlink so a crashing connection process doesn't kill the test process.
         Process.unlink(conn)

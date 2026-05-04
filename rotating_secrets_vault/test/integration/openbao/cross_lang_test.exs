@@ -7,8 +7,9 @@ defmodule RotatingSecretsVault.Integration.CrossLangTest do
   alias RotatingSecrets.Secret
 
   setup do
-    binary_path = System.get_env("RUST_CONSUMER_BIN") ||
-                  raise "RUST_CONSUMER_BIN not set"
+    binary_path =
+      System.get_env("RUST_CONSUMER_BIN") ||
+        raise "RUST_CONSUMER_BIN not set"
 
     {rust_port_handle, rust_port} = RustConsumerHelper.start_server!(binary_path)
     RustConsumerHelper.wait_for_ready!(rust_port)
@@ -34,16 +35,17 @@ defmodule RotatingSecretsVault.Integration.CrossLangTest do
     OpenBaoHelper.write_secret!("secret", "#{prefix}/cross_lang", %{"value" => "v1-value"})
 
     # Step 2: Register in Elixir
-    {:ok, _} = RotatingSecrets.register(secret_name,
-      source: RotatingSecrets.Source.Vault.KvV2,
-      source_opts: [
-        address: OpenBaoHelper.base_url(),
-        token: OpenBaoHelper.root_token(),
-        path: "#{prefix}/cross_lang",
-        mount: "secret"
-      ],
-      fallback_interval_ms: 300
-    )
+    {:ok, _} =
+      RotatingSecrets.register(secret_name,
+        source: RotatingSecrets.Source.Vault.KvV2,
+        source_opts: [
+          address: OpenBaoHelper.base_url(),
+          token: OpenBaoHelper.root_token(),
+          path: "#{prefix}/cross_lang",
+          mount: "secret"
+        ],
+        fallback_interval_ms: 300
+      )
 
     # Step 3: Subscribe
     {:ok, sub_ref} = RotatingSecrets.subscribe(secret_name)

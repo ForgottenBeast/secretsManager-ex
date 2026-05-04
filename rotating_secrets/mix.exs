@@ -23,7 +23,8 @@ defmodule RotatingSecrets.MixProject do
 
       # Docs
       name: "RotatingSecrets",
-      description: "Elixir secret lifecycle library with rotation, borrow semantics, and pluggable sources",
+      description:
+        "Elixir secret lifecycle library with rotation, borrow semantics, and pluggable sources",
       source_url: @source_url,
       docs: [
         main: "RotatingSecrets",

@@ -3,7 +3,7 @@ Code.require_file("support/source_fault.ex", __DIR__)
 
 openbao_available =
   System.get_env("OPENBAO_SKIP") != "1" and
-  (System.find_executable("bao") != nil or System.get_env("OPENBAO_BIN") != nil)
+    (System.find_executable("bao") != nil or System.get_env("OPENBAO_BIN") != nil)
 
 if openbao_available do
   {:ok, _} = RotatingSecrets.Supervisor.start_link()
@@ -27,14 +27,17 @@ Code.require_file("support/rust_consumer_helper.ex", __DIR__)
 
 rust_available =
   System.get_env("RUST_CONSUMER_SKIP") != "1" and
-  (fn ->
-    bin = System.get_env("RUST_CONSUMER_BIN", "")
-    bin != "" and File.exists?(bin)
-  end).()
+    (fn ->
+       bin = System.get_env("RUST_CONSUMER_BIN", "")
+       bin != "" and File.exists?(bin)
+     end).()
 
 unless rust_available do
   ExUnit.configure(exclude: (ExUnit.configuration()[:exclude] || []) ++ [:cross_lang])
-  IO.puts("[RustConsumerHelper] Rust binary not found or RUST_CONSUMER_SKIP=1 — :cross_lang tests excluded")
+
+  IO.puts(
+    "[RustConsumerHelper] Rust binary not found or RUST_CONSUMER_SKIP=1 — :cross_lang tests excluded"
+  )
 end
 
 # To run :openbao_db tests locally (requires nix develop):
@@ -46,12 +49,22 @@ end
 pg_available = System.get_env("PG_AVAILABLE") == "1"
 
 unless pg_available do
-  ExUnit.configure(exclude: (ExUnit.configuration()[:exclude] || []) ++ [:openbao_db, :cross_lang_db])
-  IO.puts("[test_helper] PostgreSQL not available — :openbao_db and :cross_lang_db tests excluded")
+  ExUnit.configure(
+    exclude: (ExUnit.configuration()[:exclude] || []) ++ [:openbao_db, :cross_lang_db]
+  )
+
+  IO.puts(
+    "[test_helper] PostgreSQL not available — :openbao_db and :cross_lang_db tests excluded"
+  )
 end
 
 unless System.get_env("BAO_UNIX_SOCKET") do
   ExUnit.configure(exclude: (ExUnit.configuration()[:exclude] || []) ++ [:unix_socket])
+end
+
+unless System.get_env("SPIRE_AGENT_SOCKET") do
+  ExUnit.configure(exclude: (ExUnit.configuration()[:exclude] || []) ++ [:spire])
+  IO.puts("[test_helper] SPIRE_AGENT_SOCKET not set — :spire tests excluded")
 end
 
 ExUnit.start()

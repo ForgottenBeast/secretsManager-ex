@@ -12,7 +12,8 @@ defmodule SourceFault do
   def init(opts) do
     inner_source = Keyword.fetch!(opts, :source)
     inner_opts = Keyword.get(opts, :source_opts, [])
-    fault_name = Keyword.fetch!(opts, :fault_name)  # atom, used to look up fault state
+    # atom, used to look up fault state
+    fault_name = Keyword.fetch!(opts, :fault_name)
 
     {:ok, inner_state} = inner_source.init(inner_opts)
 

@@ -27,13 +27,17 @@ defmodule PgFixtures do
 
     Postgrex.query!(conn, "DROP TABLE IF EXISTS #{@table}", [])
 
-    Postgrex.query!(conn, """
-    CREATE TABLE #{@table} (
-      id    integer PRIMARY KEY,
-      name  text    NOT NULL,
-      value text    NOT NULL
+    Postgrex.query!(
+      conn,
+      """
+      CREATE TABLE #{@table} (
+        id    integer PRIMARY KEY,
+        name  text    NOT NULL,
+        value text    NOT NULL
+      )
+      """,
+      []
     )
-    """, [])
 
     Enum.each(@rows, fn [id, name, value] ->
       Postgrex.query!(

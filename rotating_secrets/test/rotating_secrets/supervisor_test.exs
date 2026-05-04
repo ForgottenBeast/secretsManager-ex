@@ -61,7 +61,10 @@ defmodule RotatingSecrets.SupervisorTest do
       |> stub(:load, fn state -> {:ok, @material, @meta, state} end)
 
       custom_via = {:via, Registry, {RotatingSecrets.ProcessRegistry, :via_secret}}
-      assert {:ok, pid} = Supervisor.register(:via_secret, source: MockSource, registry_via: custom_via)
+
+      assert {:ok, pid} =
+               Supervisor.register(:via_secret, source: MockSource, registry_via: custom_via)
+
       assert Process.alive?(pid)
     end
   end

@@ -92,6 +92,7 @@ defmodule RotatingSecretsVault.Integration.FailSoftTest do
     # Stale value still served
     {:ok, s2} = RotatingSecrets.current(:stale_secret)
     assert Secret.expose(s2) == "loaded-value"
+
     assert Process.alive?(
              GenServer.whereis({:via, Registry, {RotatingSecrets.ProcessRegistry, :stale_secret}})
            )

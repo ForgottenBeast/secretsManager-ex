@@ -27,8 +27,9 @@ defmodule RotatingSecrets.MonotoneVersionsPropertiesTest do
             version <- integer(1..9999),
             max_runs: 25
           ) do
+      # unique test atom, not user-controlled
       # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-      name = :"prop_versions_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
+      name = :"prop_versions_#{System.unique_integer([:positive])}"
       meta = %{version: version}
 
       MockSource
@@ -54,8 +55,9 @@ defmodule RotatingSecrets.MonotoneVersionsPropertiesTest do
   end
 
   test "version is nil when meta has no :version key" do
+    # unique test atom, not user-controlled
     # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-    name = :"prop_nil_ver_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
+    name = :"prop_nil_ver_#{System.unique_integer([:positive])}"
 
     MockSource
     |> stub(:init, fn _opts -> {:ok, %{}} end)

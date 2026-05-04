@@ -38,7 +38,8 @@ defmodule RotatingSecrets.Source.Vault.Transit.OperationsTest do
         Plug.Conn.send_resp(conn, 403, "")
       end)
 
-      assert {:error, :vault_auth_error} = Operations.create_key(base_req(), "transit", "test-key")
+      assert {:error, :vault_auth_error} =
+               Operations.create_key(base_req(), "transit", "test-key")
     end
   end
 
@@ -65,7 +66,8 @@ defmodule RotatingSecrets.Source.Vault.Transit.OperationsTest do
         Plug.Conn.send_resp(conn, 403, "")
       end)
 
-      assert {:error, :vault_auth_error} = Operations.delete_key(base_req(), "transit", "test-key")
+      assert {:error, :vault_auth_error} =
+               Operations.delete_key(base_req(), "transit", "test-key")
     end
   end
 

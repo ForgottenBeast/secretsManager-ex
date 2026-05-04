@@ -15,7 +15,9 @@ defmodule RotatingSecretsVault.Integration.TtlTest do
     path = "test-ttl-meta-#{System.unique_integer([:positive])}"
     name = :"vault_ttl_meta_#{System.unique_integer([:positive])}"
 
-    OpenBaoHelper.write_secret!("secret", path, %{"value" => "initial-value"}, %{"ttl_seconds" => "1"})
+    OpenBaoHelper.write_secret!("secret", path, %{"value" => "initial-value"}, %{
+      "ttl_seconds" => "1"
+    })
 
     on_exit(fn ->
       RotatingSecrets.deregister(name)
@@ -40,8 +42,7 @@ defmodule RotatingSecretsVault.Integration.TtlTest do
     OpenBaoHelper.write_secret!("secret", path, %{"value" => "updated-value"})
 
     # Wait for rotation event (TTL-driven refresh at 666ms; give 2000ms budget)
-    assert_receive {:telemetry, [:rotating_secrets, :rotation], _measurements,
-                    %{name: ^name}},
+    assert_receive {:telemetry, [:rotating_secrets, :rotation], _measurements, %{name: ^name}},
                    2000
 
     {:ok, secret} = RotatingSecrets.current(name)
@@ -81,8 +82,7 @@ defmodule RotatingSecretsVault.Integration.TtlTest do
 
     OpenBaoHelper.write_secret!("secret", path, %{"value" => "second-value"})
 
-    assert_receive {:telemetry, [:rotating_secrets, :rotation], _measurements,
-                    %{name: ^name}},
+    assert_receive {:telemetry, [:rotating_secrets, :rotation], _measurements, %{name: ^name}},
                    2000
 
     {:ok, secret} = RotatingSecrets.current(name)
@@ -123,15 +123,13 @@ defmodule RotatingSecretsVault.Integration.TtlTest do
     # Write v2 and wait for rotation
     OpenBaoHelper.write_secret!("secret", path, %{"value" => "v2-value"})
 
-    assert_receive {:telemetry, [:rotating_secrets, :rotation], %{version: v2},
-                    %{name: ^name}},
+    assert_receive {:telemetry, [:rotating_secrets, :rotation], %{version: v2}, %{name: ^name}},
                    2000
 
     # Write v3 and wait for rotation
     OpenBaoHelper.write_secret!("secret", path, %{"value" => "v3-value"})
 
-    assert_receive {:telemetry, [:rotating_secrets, :rotation], %{version: v3},
-                    %{name: ^name}},
+    assert_receive {:telemetry, [:rotating_secrets, :rotation], %{version: v3}, %{name: ^name}},
                    2000
 
     # Versions must be strictly increasing

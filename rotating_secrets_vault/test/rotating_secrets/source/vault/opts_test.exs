@@ -23,7 +23,8 @@ defmodule RotatingSecrets.Source.Vault.OptsTest do
     end
 
     test "returns {:ok, token} when both unix_socket and token present" do
-      assert {:ok, "s.token"} = Opts.fetch_optional_token(unix_socket: "/run/bao.sock", token: "s.token")
+      assert {:ok, "s.token"} =
+               Opts.fetch_optional_token(unix_socket: "/run/bao.sock", token: "s.token")
     end
   end
 
@@ -53,12 +54,15 @@ defmodule RotatingSecrets.Source.Vault.OptsTest do
 
     test "accepts {:oidc, opts} with all required fields" do
       assert {:ok, {:oidc, _}} =
-               Opts.validate_auth({:oidc, [
-                 issuer_uri: "https://example.com",
-                 client_id: "my-client",
-                 client_secret: "my-secret",
-                 role: "my-role"
-               ]})
+               Opts.validate_auth(
+                 {:oidc,
+                  [
+                    issuer_uri: "https://example.com",
+                    client_id: "my-client",
+                    client_secret: "my-secret",
+                    role: "my-role"
+                  ]}
+               )
     end
 
     test "rejects {:oidc, opts} missing :issuer_uri" do
@@ -68,22 +72,31 @@ defmodule RotatingSecrets.Source.Vault.OptsTest do
 
     test "rejects {:oidc, opts} missing :client_id" do
       assert {:error, {:invalid_option, :client_id}} =
-               Opts.validate_auth({:oidc, [issuer_uri: "https://x.com", client_secret: "s", role: "r"]})
+               Opts.validate_auth(
+                 {:oidc, [issuer_uri: "https://x.com", client_secret: "s", role: "r"]}
+               )
     end
 
     test "rejects {:oidc, opts} missing :client_secret" do
       assert {:error, {:invalid_option, :client_secret}} =
-               Opts.validate_auth({:oidc, [issuer_uri: "https://x.com", client_id: "c", role: "r"]})
+               Opts.validate_auth(
+                 {:oidc, [issuer_uri: "https://x.com", client_id: "c", role: "r"]}
+               )
     end
 
     test "rejects {:oidc, opts} missing :role" do
       assert {:error, {:invalid_option, :role}} =
-               Opts.validate_auth({:oidc, [issuer_uri: "https://x.com", client_id: "c", client_secret: "s"]})
+               Opts.validate_auth(
+                 {:oidc, [issuer_uri: "https://x.com", client_id: "c", client_secret: "s"]}
+               )
     end
 
     test "rejects {:oidc, opts} with empty :client_secret" do
       assert {:error, {:invalid_option, :client_secret}} =
-               Opts.validate_auth({:oidc, [issuer_uri: "https://x.com", client_id: "c", client_secret: "", role: "r"]})
+               Opts.validate_auth(
+                 {:oidc,
+                  [issuer_uri: "https://x.com", client_id: "c", client_secret: "", role: "r"]}
+               )
     end
   end
 
@@ -121,15 +134,18 @@ defmodule RotatingSecrets.Source.Vault.OptsTest do
     end
 
     test "path with null byte returns error" do
-      assert {:error, {:invalid_option, :unix_socket}} = Opts.validate_unix_socket("/run/bao\0sock")
+      assert {:error, {:invalid_option, :unix_socket}} =
+               Opts.validate_unix_socket("/run/bao\0sock")
     end
 
     test "path with newline returns error" do
-      assert {:error, {:invalid_option, :unix_socket}} = Opts.validate_unix_socket("/run/bao\nsock")
+      assert {:error, {:invalid_option, :unix_socket}} =
+               Opts.validate_unix_socket("/run/bao\nsock")
     end
 
     test "path with carriage return returns error" do
-      assert {:error, {:invalid_option, :unix_socket}} = Opts.validate_unix_socket("/run/bao\rsock")
+      assert {:error, {:invalid_option, :unix_socket}} =
+               Opts.validate_unix_socket("/run/bao\rsock")
     end
   end
 end

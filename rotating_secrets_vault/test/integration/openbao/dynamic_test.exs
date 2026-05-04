@@ -27,10 +27,11 @@ defmodule RotatingSecretsVault.Integration.DynamicTest do
   end
 
   test "fetches database credentials from OpenBao", %{name: name} do
-    {:ok, _} = RotatingSecrets.register(name,
-      source: RotatingSecrets.Source.Vault.Dynamic,
-      source_opts: dynamic_opts()
-    )
+    {:ok, _} =
+      RotatingSecrets.register(name,
+        source: RotatingSecrets.Source.Vault.Dynamic,
+        source_opts: dynamic_opts()
+      )
 
     {:ok, secret} = RotatingSecrets.current(name)
     material = Secret.expose(secret)
@@ -41,10 +42,11 @@ defmodule RotatingSecretsVault.Integration.DynamicTest do
   end
 
   test "meta contains lease_id, lease_duration_ms, ttl_seconds", %{name: name} do
-    {:ok, _} = RotatingSecrets.register(name,
-      source: RotatingSecrets.Source.Vault.Dynamic,
-      source_opts: dynamic_opts()
-    )
+    {:ok, _} =
+      RotatingSecrets.register(name,
+        source: RotatingSecrets.Source.Vault.Dynamic,
+        source_opts: dynamic_opts()
+      )
 
     {:ok, secret} = RotatingSecrets.current(name)
     meta = Secret.meta(secret)
@@ -61,10 +63,11 @@ defmodule RotatingSecretsVault.Integration.DynamicTest do
     # At refresh, Dynamic.load/1 attempts PUT /v1/sys/leases/renew first.
     # On success, it returns the SAME material with a new TTL.
     # Do NOT set fallback_interval_ms — it has no effect when ttl_seconds is present in meta.
-    {:ok, _} = RotatingSecrets.register(name,
-      source: RotatingSecrets.Source.Vault.Dynamic,
-      source_opts: dynamic_opts()
-    )
+    {:ok, _} =
+      RotatingSecrets.register(name,
+        source: RotatingSecrets.Source.Vault.Dynamic,
+        source_opts: dynamic_opts()
+      )
 
     {:ok, sub_ref} = RotatingSecrets.subscribe(name)
 
@@ -85,10 +88,11 @@ defmodule RotatingSecretsVault.Integration.DynamicTest do
 
   @tag timeout: 120_000
   test "lease revocation on deregister", %{name: name} do
-    {:ok, _} = RotatingSecrets.register(name,
-      source: RotatingSecrets.Source.Vault.Dynamic,
-      source_opts: dynamic_opts()
-    )
+    {:ok, _} =
+      RotatingSecrets.register(name,
+        source: RotatingSecrets.Source.Vault.Dynamic,
+        source_opts: dynamic_opts()
+      )
 
     {:ok, secret} = RotatingSecrets.current(name)
     lease_id = Secret.meta(secret).lease_id
@@ -97,11 +101,12 @@ defmodule RotatingSecretsVault.Integration.DynamicTest do
     RotatingSecrets.deregister(name)
 
     # Verify the lease was revoked by attempting to renew it
-    client = Req.new(
-      base_url: OpenBaoHelper.base_url(),
-      headers: [{"X-Vault-Token", OpenBaoHelper.root_token()}],
-      retry: false
-    )
+    client =
+      Req.new(
+        base_url: OpenBaoHelper.base_url(),
+        headers: [{"X-Vault-Token", OpenBaoHelper.root_token()}],
+        retry: false
+      )
 
     result = Req.put!(client, url: "/v1/sys/leases/renew", json: %{"lease_id" => lease_id})
     assert result.status in [400, 403, 404]

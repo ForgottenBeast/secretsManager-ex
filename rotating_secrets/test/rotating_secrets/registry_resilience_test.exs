@@ -26,8 +26,9 @@ defmodule RotatingSecrets.RegistryResilienceTest do
   @meta %{version: 1}
 
   test "Registry stays alive and serves last-known-good while refresh returns transient errors" do
+    # unique test atom, not user-controlled
     # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-    name = :"resilience_failsoft_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
+    name = :"resilience_failsoft_#{System.unique_integer([:positive])}"
     calls = :counters.new(1, [:atomics])
 
     MockSource
@@ -68,8 +69,9 @@ defmodule RotatingSecrets.RegistryResilienceTest do
   end
 
   test "Registry eventually recovers and serves new value after transient errors clear" do
+    # unique test atom, not user-controlled
     # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-    name = :"resilience_recovery_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
+    name = :"resilience_recovery_#{System.unique_integer([:positive])}"
     calls = :counters.new(1, [:atomics])
 
     MockSource
@@ -112,8 +114,9 @@ defmodule RotatingSecrets.RegistryResilienceTest do
   end
 
   test "subscribers are re-notified after recovery" do
+    # unique test atom, not user-controlled
     # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-    name = :"resilience_sub_recovery_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
+    name = :"resilience_sub_recovery_#{System.unique_integer([:positive])}"
     calls = :counters.new(1, [:atomics])
 
     MockSource

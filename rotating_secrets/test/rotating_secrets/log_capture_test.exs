@@ -28,8 +28,9 @@ defmodule RotatingSecrets.LogCaptureTest do
   end
 
   defp start_registry_with_secret do
+    # unique test atom, not user-controlled
     # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-    name = :"log_test_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
+    name = :"log_test_#{System.unique_integer([:positive])}"
 
     MockSource
     |> stub(:init, fn _opts -> {:ok, %{}} end)

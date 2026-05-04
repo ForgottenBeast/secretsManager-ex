@@ -111,7 +111,9 @@ defmodule RotatingSecretsVault.Integration.SubscriberTest do
     OpenBaoHelper.write_secret!("secret", "#{prefix}/auto_remove_key", %{"value" => "rotated"})
 
     # Registry PID must still be alive
-    assert Process.alive?(GenServer.whereis({:via, Registry, {RotatingSecrets.ProcessRegistry, name}}))
+    assert Process.alive?(
+             GenServer.whereis({:via, Registry, {RotatingSecrets.ProcessRegistry, name}})
+           )
   end
 
   test "unsubscribe stops notifications", %{prefix: prefix, name: name} do

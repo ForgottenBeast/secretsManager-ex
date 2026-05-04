@@ -6,24 +6,29 @@ defmodule RotatingSecrets.Source.Vault.TransitTest do
   alias RotatingSecrets.Source.Vault.Transit
 
   @stub_name :transit_test
-  @valid_opts [address: "http://127.0.0.1:8200", mount: "transit", name: "test-key", token: "root"]
+  @valid_opts [
+    address: "http://127.0.0.1:8200",
+    mount: "transit",
+    name: "test-key",
+    token: "root"
+  ]
 
   defp stub_opts(opts), do: opts ++ [req_options: [plug: {Req.Test, @stub_name}]]
 
   defp transit_keys_response(latest_version \\ 1, min_decryption_version \\ 1) do
     %{
       "data" => %{
-        "name"                   => "test-key",
-        "type"                   => "aes256-gcm96",
-        "latest_version"         => latest_version,
+        "name" => "test-key",
+        "type" => "aes256-gcm96",
+        "latest_version" => latest_version,
         "min_decryption_version" => min_decryption_version,
         "min_encryption_version" => 0,
-        "deletion_allowed"       => false,
-        "exportable"             => false,
-        "supports_encryption"    => true,
-        "supports_decryption"    => true,
-        "supports_derivation"    => true,
-        "supports_signing"       => false
+        "deletion_allowed" => false,
+        "exportable" => false,
+        "supports_encryption" => true,
+        "supports_decryption" => true,
+        "supports_derivation" => true,
+        "supports_signing" => false
       }
     }
   end

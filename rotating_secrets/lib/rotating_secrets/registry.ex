@@ -421,11 +421,12 @@ defmodule RotatingSecrets.Registry do
 
   defp maybe_pg_broadcast(name, version) do
     if Application.get_env(:rotating_secrets, :cluster_broadcast, false) do
-      group = Application.get_env(
-        :rotating_secrets,
-        :cluster_broadcast_group,
-        :rotating_secrets_rotations
-      )
+      group =
+        Application.get_env(
+          :rotating_secrets,
+          :cluster_broadcast_group,
+          :rotating_secrets_rotations
+        )
 
       try do
         members = :pg.get_members(group)

@@ -140,7 +140,12 @@ defmodule RotatingSecrets.TelemetryTest do
       Telemetry.emit_load_exception(:my_secret, MyApp.Source, :error, exception)
 
       assert_receive {:telemetry, [:rotating_secrets, :source, :load, :exception], %{},
-                      %{name: :my_secret, source: MyApp.Source, kind: :error, reason: {RuntimeError, "boom"}}}
+                      %{
+                        name: :my_secret,
+                        source: MyApp.Source,
+                        kind: :error,
+                        reason: {RuntimeError, "boom"}
+                      }}
     end
 
     test "supports :throw kind", %{handler_id: id, test_pid: pid} do

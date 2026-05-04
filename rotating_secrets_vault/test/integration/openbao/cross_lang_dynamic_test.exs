@@ -27,15 +27,16 @@ defmodule RotatingSecretsVault.Integration.CrossLangDynamicTest do
   end
 
   test "Dynamic credential pipeline reaches Rust consumer", %{rust_port: rust_port, name: name} do
-    {:ok, _} = RotatingSecrets.register(name,
-      source: RotatingSecrets.Source.Vault.Dynamic,
-      source_opts: [
-        address: OpenBaoHelper.base_url(),
-        token: OpenBaoHelper.root_token(),
-        mount: "database",
-        path: "test-role"
-      ]
-    )
+    {:ok, _} =
+      RotatingSecrets.register(name,
+        source: RotatingSecrets.Source.Vault.Dynamic,
+        source_opts: [
+          address: OpenBaoHelper.base_url(),
+          token: OpenBaoHelper.root_token(),
+          mount: "database",
+          path: "test-role"
+        ]
+      )
 
     {:ok, sub_ref} = RotatingSecrets.subscribe(name)
 

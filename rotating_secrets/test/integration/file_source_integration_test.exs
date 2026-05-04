@@ -26,8 +26,9 @@ defmodule RotatingSecrets.FileSourceIntegrationTest do
   test "atomic rename is picked up on next interval refresh", %{dir: dir, path: path} do
     Elixir.File.write!(path, "v1\n")
 
+    # unique test atom, not user-controlled
     # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-    name = :"file_int_atomic_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
+    name = :"file_int_atomic_#{System.unique_integer([:positive])}"
 
     {:ok, _pid} =
       RotatingSecrets.register(name,
@@ -58,8 +59,9 @@ defmodule RotatingSecrets.FileSourceIntegrationTest do
   test "concurrent reads during rotation always return a valid secret", %{path: path} do
     Elixir.File.write!(path, "concurrent-v1\n")
 
+    # unique test atom, not user-controlled
     # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-    name = :"file_int_concurrent_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
+    name = :"file_int_concurrent_#{System.unique_integer([:positive])}"
 
     {:ok, _pid} =
       RotatingSecrets.register(name,
@@ -102,8 +104,9 @@ defmodule RotatingSecrets.FileSourceIntegrationTest do
        %{path: path} do
     Elixir.File.write!(path, "good-value\n")
 
+    # unique test atom, not user-controlled
     # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-    name = :"file_int_lgk_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
+    name = :"file_int_lgk_#{System.unique_integer([:positive])}"
 
     {:ok, _pid} =
       RotatingSecrets.register(name,
@@ -116,6 +119,7 @@ defmodule RotatingSecrets.FileSourceIntegrationTest do
 
     # Remove file, then trigger refresh
     Elixir.File.rm!(path)
+
     registry_pid =
       GenServer.whereis({:via, Registry, {RotatingSecrets.ProcessRegistry, name}})
 

@@ -27,8 +27,9 @@ defmodule RotatingSecrets.SubscriberFanoutPropertiesTest do
             n <- Generators.subscriber_count(),
             max_runs: 15
           ) do
+      # unique test atom, not user-controlled
       # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-      name = :"prop_fanout_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
+      name = :"prop_fanout_#{System.unique_integer([:positive])}"
 
       MockSource
       |> stub(:init, fn _opts -> {:ok, %{}} end)

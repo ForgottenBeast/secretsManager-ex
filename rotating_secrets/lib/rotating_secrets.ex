@@ -196,6 +196,7 @@ defmodule RotatingSecrets do
           %{node() => {:ok, version :: term(), meta :: map()} | {:error, term()}}
   def cluster_status(name) when is_atom(name) do
     nodes = Node.list()
+
     {results, bad_nodes} =
       :rpc.multicall(nodes, RotatingSecrets.Registry, :version_and_meta, [name], 5_000)
 

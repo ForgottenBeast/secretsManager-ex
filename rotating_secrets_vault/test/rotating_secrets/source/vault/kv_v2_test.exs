@@ -36,13 +36,21 @@ defmodule RotatingSecrets.Source.Vault.KvV2Test do
   setup_all do
     # Start a single SpiffeEx supervisor for the module.
     # SpiffeEx.Registry is a global named process — only one instance can exist.
-    start_supervised!({SpiffeEx, [name: @kv_v2_spiffe_name, endpoint: "unix:/fake/spire.sock", workload_api_mod: FakeWorkloadAPI]})
+    start_supervised!(
+      {SpiffeEx,
+       [
+         name: @kv_v2_spiffe_name,
+         endpoint: "unix:/fake/spire.sock",
+         workload_api_mod: FakeWorkloadAPI
+       ]}
+    )
+
     :ok
   end
 
   defp stub_opts(extra \\ []) do
     @valid_opts
-    |> Keyword.put(:req_options, [plug: {Req.Test, @stub_name}])
+    |> Keyword.put(:req_options, plug: {Req.Test, @stub_name})
     |> Keyword.merge(extra)
   end
 
@@ -227,7 +235,9 @@ defmodule RotatingSecrets.Source.Vault.KvV2Test do
         address: "http://127.0.0.1:8200",
         mount: "secret",
         path: "myapp/db",
-        auth: {:jwt_svid, [spiffe_ex: @kv_v2_spiffe_name, audience: "https://vault.example.com", role: "my-role"]},
+        auth:
+          {:jwt_svid,
+           [spiffe_ex: @kv_v2_spiffe_name, audience: "https://vault.example.com", role: "my-role"]},
         req_options: [plug: {Req.Test, @jwt_svid_stub_name}]
       ]
 
@@ -261,7 +271,9 @@ defmodule RotatingSecrets.Source.Vault.KvV2Test do
         address: "http://127.0.0.1:8200",
         mount: "secret",
         path: "myapp/db",
-        auth: {:jwt_svid, [spiffe_ex: @kv_v2_spiffe_name, audience: "https://vault.example.com", role: "my-role"]},
+        auth:
+          {:jwt_svid,
+           [spiffe_ex: @kv_v2_spiffe_name, audience: "https://vault.example.com", role: "my-role"]},
         req_options: [plug: {Req.Test, @jwt_svid_stub_name}]
       ]
 

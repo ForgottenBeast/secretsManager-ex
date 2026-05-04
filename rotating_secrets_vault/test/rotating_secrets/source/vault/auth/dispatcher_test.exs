@@ -50,14 +50,20 @@ defmodule RotatingSecrets.Source.Vault.Auth.DispatcherTest do
 
     test "{:jwt_svid, state} with fresh token injects token and rewraps" do
       state = fresh_jwt_svid_state()
-      assert {:ok, fresh_req, {:jwt_svid, new_state}} = Dispatcher.ensure_fresh({:jwt_svid, state}, base_req())
+
+      assert {:ok, fresh_req, {:jwt_svid, new_state}} =
+               Dispatcher.ensure_fresh({:jwt_svid, state}, base_req())
+
       assert new_state.vault_token == "s.jwt-token"
       assert Req.Request.get_header(fresh_req, "x-vault-token") == ["s.jwt-token"]
     end
 
     test "{:oidc, state} with fresh token injects token and rewraps" do
       state = fresh_oidc_state()
-      assert {:ok, fresh_req, {:oidc, new_state}} = Dispatcher.ensure_fresh({:oidc, state}, base_req())
+
+      assert {:ok, fresh_req, {:oidc, new_state}} =
+               Dispatcher.ensure_fresh({:oidc, state}, base_req())
+
       assert new_state.vault_token == "s.oidc-token"
       assert Req.Request.get_header(fresh_req, "x-vault-token") == ["s.oidc-token"]
     end

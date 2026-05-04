@@ -20,7 +20,10 @@ defmodule RotatingSecretsVault.Integration.UnixSocketTest do
     {:ok, Map.put(ctx, :prefix, prefix)}
   end
 
-  test "reads KV v2 secret through UNIX domain socket", %{socket_path: socket_path, prefix: prefix} do
+  test "reads KV v2 secret through UNIX domain socket", %{
+    socket_path: socket_path,
+    prefix: prefix
+  } do
     path = "#{prefix}/unix_key"
     OpenBaoHelper.write_secret!("secret", path, %{"value" => "unix-socket-secret"})
 

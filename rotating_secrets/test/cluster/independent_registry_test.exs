@@ -36,8 +36,9 @@ defmodule RotatingSecrets.Cluster.IndependentRegistryTest do
     File.write!(path, "shared-v1\n")
     on_exit(fn -> File.rm_rf!(dir) end)
 
+    # unique test atom, not user-controlled
     # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-    name = :"cluster_independent_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
+    name = :"cluster_independent_#{System.unique_integer([:positive])}"
 
     # Register the same secret on each node independently
     {:ok, _} =

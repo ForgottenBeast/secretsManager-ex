@@ -43,8 +43,9 @@ defmodule RotatingSecrets.FileSourceResilienceTest do
   test "interval-mode registry stays alive after missing-file refresh", %{path: path} do
     Elixir.File.write!(path, "initial-secret\n")
 
+    # unique test atom, not user-controlled
     # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-    name = :"file_resilience_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
+    name = :"file_resilience_#{System.unique_integer([:positive])}"
 
     {:ok, _pid} =
       RotatingSecrets.register(name,
@@ -59,7 +60,9 @@ defmodule RotatingSecrets.FileSourceResilienceTest do
     Elixir.File.rm!(path)
 
     state = :sys.get_state({:via, Elixir.Registry, {RotatingSecrets.ProcessRegistry, name}})
-    registry_pid = GenServer.whereis({:via, Elixir.Registry, {RotatingSecrets.ProcessRegistry, name}})
+
+    registry_pid =
+      GenServer.whereis({:via, Elixir.Registry, {RotatingSecrets.ProcessRegistry, name}})
 
     send(registry_pid, :do_refresh)
     Process.sleep(30)
@@ -76,8 +79,9 @@ defmodule RotatingSecrets.FileSourceResilienceTest do
   test "interval-mode registry recovers after file is restored", %{path: path} do
     Elixir.File.write!(path, "v1\n")
 
+    # unique test atom, not user-controlled
     # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-    name = :"file_recovery_#{System.unique_integer([:positive])}"  # unique test atom, not user-controlled
+    name = :"file_recovery_#{System.unique_integer([:positive])}"
 
     {:ok, _pid} =
       RotatingSecrets.register(name,
@@ -90,7 +94,10 @@ defmodule RotatingSecrets.FileSourceResilienceTest do
 
     # Remove file, trigger refresh
     Elixir.File.rm!(path)
-    registry_pid = GenServer.whereis({:via, Elixir.Registry, {RotatingSecrets.ProcessRegistry, name}})
+
+    registry_pid =
+      GenServer.whereis({:via, Elixir.Registry, {RotatingSecrets.ProcessRegistry, name}})
+
     send(registry_pid, :do_refresh)
     Process.sleep(30)
 

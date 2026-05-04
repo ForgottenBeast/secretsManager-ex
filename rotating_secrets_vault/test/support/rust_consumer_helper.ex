@@ -22,8 +22,12 @@ defmodule RustConsumerHelper do
   @timeout_ms 5_000
 
   def start_server!(binary_path) do
-    port = Port.open({:spawn_executable, binary_path},
-                     [:binary, :exit_status, args: ["--port", "0"]])
+    port =
+      Port.open(
+        {:spawn_executable, binary_path},
+        [:binary, :exit_status, args: ["--port", "0"]]
+      )
+
     rust_port = wait_for_port!(port, @timeout_ms)
     {port, rust_port}
   end
@@ -58,7 +62,8 @@ defmodule RustConsumerHelper do
 
   def push_secret!(rust_port, value, version) do
     case Req.post("http://127.0.0.1:#{rust_port}/secret",
-                  json: %{"value" => value, "version" => version}) do
+           json: %{"value" => value, "version" => version}
+         ) do
       {:ok, %{status: 200}} -> :ok
       {:ok, %{status: status}} -> flunk("Rust consumer rejected push: #{status}")
       {:error, reason} -> flunk("Rust consumer push failed: #{inspect(reason)}")
@@ -85,6 +90,7 @@ defmodule RustConsumerHelper do
           [_, n] -> String.to_integer(n)
           nil -> do_wait_for_port(port, deadline)
         end
+
       {^port, {:exit_status, code}} ->
         raise "Rust binary exited with code #{code} before printing LISTENING_PORT"
     after

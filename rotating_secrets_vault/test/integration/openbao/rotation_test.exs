@@ -111,7 +111,8 @@ defmodule RotatingSecretsVault.Integration.RotationTest do
     new_val = "new-secret-#{:erlang.unique_integer([:positive])}"
     OpenBaoHelper.write_secret!("secret", path, %{"value" => new_val})
 
-    assert_receive {:telemetry_event, [:rotating_secrets, :rotation], measurements, metadata}, 2000
+    assert_receive {:telemetry_event, [:rotating_secrets, :rotation], measurements, metadata},
+                   2000
 
     assert is_atom(metadata[:name])
     assert is_integer(measurements[:version])

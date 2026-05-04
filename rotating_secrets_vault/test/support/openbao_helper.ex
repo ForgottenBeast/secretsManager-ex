@@ -3,14 +3,26 @@ defmodule OpenBaoHelper do
   @root_token "root"
 
   def start_server!() do
-    bin = System.find_executable("bao") ||
-          System.get_env("OPENBAO_BIN") ||
-          raise "bao binary not found — set OPENBAO_BIN or add bao to PATH"
-    port = Port.open({:spawn_executable, bin},
-                     [:binary, :exit_status,
-                      args: ["server", "-dev",
-                             "-dev-root-token-id=root",
-                             "-dev-listen-address=127.0.0.1:8200"]])
+    bin =
+      System.find_executable("bao") ||
+        System.get_env("OPENBAO_BIN") ||
+        raise "bao binary not found — set OPENBAO_BIN or add bao to PATH"
+
+    port =
+      Port.open(
+        {:spawn_executable, bin},
+        [
+          :binary,
+          :exit_status,
+          args: [
+            "server",
+            "-dev",
+            "-dev-root-token-id=root",
+            "-dev-listen-address=127.0.0.1:8200"
+          ]
+        ]
+      )
+
     wait_for_health!()
     port
   end
@@ -47,12 +59,19 @@ defmodule OpenBaoHelper do
 
   def write_secret!(mount, path, data, custom_metadata \\ %{}) do
     client = build_client()
-    Req.post!(client, url: "/v1/#{mount}/data/#{path}",
-              json: %{"data" => data})
+
+    Req.post!(client,
+      url: "/v1/#{mount}/data/#{path}",
+      json: %{"data" => data}
+    )
+
     unless map_size(custom_metadata) == 0 do
-      Req.post!(client, url: "/v1/#{mount}/metadata/#{path}",
-                json: %{"custom_metadata" => custom_metadata})
+      Req.post!(client,
+        url: "/v1/#{mount}/metadata/#{path}",
+        json: %{"custom_metadata" => custom_metadata}
+      )
     end
+
     :ok
   end
 
@@ -66,15 +85,22 @@ defmodule OpenBaoHelper do
   def setup_pki_engine!(mount \\ "pki") do
     client = build_client()
     Req.post!(client, url: "/v1/sys/mounts/#{mount}", json: %{"type" => "pki"})
-    Req.post!(client, url: "/v1/#{mount}/root/generate/internal",
-              json: %{"common_name" => "Test Root CA", "ttl" => "87600h"})
-    Req.post!(client, url: "/v1/#{mount}/roles/test-role",
-              json: %{
-                "allowed_domains" => ["example.com"],
-                "allow_subdomains" => true,
-                "max_ttl" => "72h",
-                "generate_lease" => true
-              })
+
+    Req.post!(client,
+      url: "/v1/#{mount}/root/generate/internal",
+      json: %{"common_name" => "Test Root CA", "ttl" => "87600h"}
+    )
+
+    Req.post!(client,
+      url: "/v1/#{mount}/roles/test-role",
+      json: %{
+        "allowed_domains" => ["example.com"],
+        "allow_subdomains" => true,
+        "max_ttl" => "72h",
+        "generate_lease" => true
+      }
+    )
+
     :ok
   end
 
@@ -109,23 +135,30 @@ defmodule OpenBaoHelper do
   def setup_database_engine!(pg_url, mount \\ "database", role \\ "test-role") do
     client = build_client()
     Req.post!(client, url: "/v1/sys/mounts/#{mount}", json: %{"type" => "database"})
-    Req.post!(client, url: "/v1/#{mount}/config/test-postgres",
-              json: %{
-                "plugin_name" => "postgresql-database-plugin",
-                "connection_url" => pg_url,
-                "allowed_roles" => [role],
-                "username" => "postgres",
-                "password" => "postgres"
-              })
-    Req.post!(client, url: "/v1/#{mount}/roles/#{role}",
-              json: %{
-                "db_name" => "test-postgres",
-                "creation_statements" => [
-                  "CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}';"
-                ],
-                "default_ttl" => "30s",
-                "max_ttl" => "2m"
-              })
+
+    Req.post!(client,
+      url: "/v1/#{mount}/config/test-postgres",
+      json: %{
+        "plugin_name" => "postgresql-database-plugin",
+        "connection_url" => pg_url,
+        "allowed_roles" => [role],
+        "username" => "postgres",
+        "password" => "postgres"
+      }
+    )
+
+    Req.post!(client,
+      url: "/v1/#{mount}/roles/#{role}",
+      json: %{
+        "db_name" => "test-postgres",
+        "creation_statements" => [
+          "CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}';"
+        ],
+        "default_ttl" => "30s",
+        "max_ttl" => "2m"
+      }
+    )
+
     :ok
   end
 
@@ -137,7 +170,7 @@ defmodule OpenBaoHelper do
   def pg_connection_url do
     host = System.get_env("PG_HOST", "127.0.0.1")
     port = System.get_env("PG_PORT", "5432")
-    db   = System.get_env("PG_DB", "postgres")
+    db = System.get_env("PG_DB", "postgres")
     "postgresql://{{username}}:{{password}}@#{host}:#{port}/#{db}"
   end
 
@@ -145,7 +178,9 @@ defmodule OpenBaoHelper do
   def root_token, do: @root_token
 
   defp build_client do
-    Req.new(base_url: @base_url,
-            headers: [{"X-Vault-Token", @root_token}])
+    Req.new(
+      base_url: @base_url,
+      headers: [{"X-Vault-Token", @root_token}]
+    )
   end
 end
