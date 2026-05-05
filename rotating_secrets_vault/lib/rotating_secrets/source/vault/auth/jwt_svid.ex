@@ -110,7 +110,7 @@ defmodule RotatingSecrets.Source.Vault.Auth.JwtSvid do
             {:error, reason}
         end
 
-      {:error, :workload_api_unavailable} ->
+      {:error, _reason} ->
         duration_ms = System.monotonic_time(:millisecond) - start
 
         :telemetry.execute(
