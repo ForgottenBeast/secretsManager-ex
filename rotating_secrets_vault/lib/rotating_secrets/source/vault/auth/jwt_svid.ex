@@ -62,7 +62,7 @@ defmodule RotatingSecrets.Source.Vault.Auth.JwtSvid do
     start = System.monotonic_time(:millisecond)
 
     case SpiffeEx.fetch_jwt_svid(auth_state.spiffe_ex, auth_state.audience) do
-      {:ok, %SpiffeEx.SVID{token: jwt}} ->
+      {:ok, %{token: jwt}} ->
         case HTTP.post(base_req, "/v1/auth/#{auth_state.mount}/login", %{
                "jwt" => jwt,
                "role" => auth_state.role
