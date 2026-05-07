@@ -170,7 +170,8 @@ defmodule RotatingSecrets.Source.Scaleway.Secret do
   defp resolve_secret_id(state) do
     encoded_name = URI.encode_www_form(state.name)
     encoded_path = URI.encode_www_form(state.path)
-    path = "/secrets?name=#{encoded_name}&path=#{encoded_path}&project_id=#{state.project_id}"
+    encoded_project_id = URI.encode_www_form(state.project_id)
+    path = "/secrets?name=#{encoded_name}&path=#{encoded_path}&project_id=#{encoded_project_id}"
 
     case HTTP.get(state.base_req, path) do
       {:ok, %{"secrets" => [%{"id" => secret_id} | _]}} ->
@@ -209,10 +210,10 @@ defmodule RotatingSecrets.Source.Scaleway.Secret do
   defp decode_payload(body, key) do
     with {:ok, decoded} <- Base.decode64(body["payload"]),
          {:ok, json} when is_map(json) <- Jason.decode(decoded) do
-      if Map.has_key?(json, key) do
-        {:ok, json[key]}
-      else
-        {:error, :key_not_found}
+      case json do
+        %{^key => value} when is_binary(value) -> {:ok, value}
+        %{^key => _} -> {:error, :invalid_payload}
+        _ -> {:error, :key_not_found}
       end
     else
       :error -> {:error, :invalid_payload}

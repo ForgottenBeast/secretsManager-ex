@@ -243,6 +243,25 @@ defmodule RotatingSecrets.Source.Scaleway.SecretTest do
     end
   end
 
+  describe "load/1 - non-binary JSON value" do
+    test "returns {:error, :invalid_payload, state} when key value is not a string" do
+      json = Jason.encode!(%{"count" => 42})
+      b64 = Base.encode64(json)
+
+      Req.Test.stub(@stub_name, fn conn ->
+        if String.contains?(conn.request_path, "/versions/current/access") do
+          Req.Test.json(conn, %{"payload" => b64, "revision" => 1})
+        else
+          Req.Test.json(conn, %{"secrets" => [%{"id" => @secret_id}]})
+        end
+      end)
+
+      opts = stub_opts(key: "count")
+      {:ok, state} = Secret.init(opts)
+      assert {:error, :invalid_payload, _state} = Secret.load(state)
+    end
+  end
+
   describe "load/1 - secret not found" do
     test "empty secrets list returns {:error, :not_found, state}" do
       Req.Test.stub(@stub_name, fn conn ->
