@@ -72,7 +72,7 @@ jobs:
           path: |
             rotating_secrets/deps
             rotating_secrets_vault/deps
-          key: ${{ runner.os }}-openbao-deps-${{ hashFiles('rotating_secrets_vault/mix.lock') }}
+          key: ${{ runner.os }}-openbao-deps-${{ hashFiles('rotating_secrets_vault/mix.lock', 'rotating_secrets/mix.lock') }}
 
       - name: Install deps
         run: |
@@ -183,7 +183,7 @@ jobs:
           path: |
             rotating_secrets/deps
             rotating_secrets_vault/deps
-          key: ${{ runner.os }}-openbao-deps-${{ hashFiles('rotating_secrets_vault/mix.lock') }}
+          key: ${{ runner.os }}-openbao-deps-${{ hashFiles('rotating_secrets_vault/mix.lock', 'rotating_secrets/mix.lock') }}
 
       - name: Install deps
         run: |

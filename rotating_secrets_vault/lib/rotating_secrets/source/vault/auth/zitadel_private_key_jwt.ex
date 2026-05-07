@@ -39,6 +39,12 @@ defmodule RotatingSecrets.Source.Vault.Auth.ZitadelPrivateKeyJwt do
     * `:vault_role` — OpenBao JWT auth role to login with, e.g. `"normatix-machine"`. Required.
     * `:vault_mount` — OpenBao JWT auth mount. Defaults to `"jwt"` (Zitadel tokens),
       NOT `"jwt-spire"` (SPIRE SVIDs used by the JwtSvid adapter). Required for clarity.
+    * `:zitadel_req_opts` — Extra keyword options merged into the `Req.new/1` call used
+      for the Zitadel token exchange. Common uses:
+      - Self-signed cert: `[connect_options: [verify: :verify_none]]`
+      - Private CA: `[connect_options: [cacertfile: "/path/to/ca.pem"]]`
+      - Test stub: `[plug: {Req.Test, :my_stub}]`
+      Defaults to `[]`.
 
   ## Auth state
 
@@ -62,6 +68,7 @@ defmodule RotatingSecrets.Source.Vault.Auth.ZitadelPrivateKeyJwt do
           key_kv_path: String.t(),
           vault_role: String.t(),
           vault_mount: String.t(),
+          zitadel_req_opts: keyword(),
           parsed_key: %{user_id: String.t(), key_id: String.t(), rsa_key: rsa_key()},
           vault_token: String.t() | nil,
           token_expires_at: DateTime.t()
@@ -81,12 +88,14 @@ defmodule RotatingSecrets.Source.Vault.Auth.ZitadelPrivateKeyJwt do
          {:ok, key_kv_path} <- fetch_required_string(opts, :key_kv_path),
          {:ok, vault_role} <- fetch_required_string(opts, :vault_role) do
       vault_mount = Keyword.get(opts, :vault_mount, "jwt")
+      zitadel_req_opts = Keyword.get(opts, :zitadel_req_opts, [])
 
       auth_state = %{
         zitadel_url: zitadel_url,
         key_kv_path: key_kv_path,
         vault_role: vault_role,
         vault_mount: vault_mount,
+        zitadel_req_opts: zitadel_req_opts,
         parsed_key: nil,
         vault_token: nil,
         token_expires_at: ~U[1970-01-01 00:00:00Z]
@@ -171,7 +180,8 @@ defmodule RotatingSecrets.Source.Vault.Auth.ZitadelPrivateKeyJwt do
     start = System.monotonic_time(:millisecond)
 
     with {:ok, assertion_jwt} <- build_assertion_jwt(auth_state),
-         {:ok, zitadel_token} <- exchange_with_zitadel(assertion_jwt, auth_state.zitadel_url),
+         {:ok, zitadel_token} <-
+           exchange_with_zitadel(assertion_jwt, auth_state.zitadel_url, auth_state.zitadel_req_opts),
          {:ok, vault_token, ttl} <-
            login_to_openbao(zitadel_token, auth_state.vault_role, auth_state.vault_mount, base_req) do
       duration_ms = System.monotonic_time(:millisecond) - start
@@ -231,8 +241,11 @@ defmodule RotatingSecrets.Source.Vault.Auth.ZitadelPrivateKeyJwt do
     claims_b64 = claims |> Jason.encode!() |> Base.url_encode64(padding: false)
     signing_input = "#{header_b64}.#{claims_b64}"
 
-    signature =
-      :crypto.sign(:rsa, :sha256, signing_input, rsa_key, [{:rsa_padding, :rsa_pkcs1_padding}])
+    # :public_key.sign/3 accepts the decoded RSAPrivateKey record and uses
+    # PKCS#1 v1.5 padding by default — correct for JWT RS256 (RSASSA-PKCS1-v1_5).
+    # :crypto.sign/5 requires the key in list format [e, n, d, ...] which differs
+    # from what :public_key.der_decode/2 returns.
+    signature = :public_key.sign(signing_input, :sha256, rsa_key)
 
     sig_b64 = Base.url_encode64(signature, padding: false)
     {:ok, "#{signing_input}.#{sig_b64}"}
@@ -240,7 +253,7 @@ defmodule RotatingSecrets.Source.Vault.Auth.ZitadelPrivateKeyJwt do
     e -> {:error, {:jwt_signing_failed, Exception.message(e)}}
   end
 
-  defp exchange_with_zitadel(assertion_jwt, zitadel_url) do
+  defp exchange_with_zitadel(assertion_jwt, zitadel_url, extra_req_opts) do
     body =
       URI.encode_query(%{
         "grant_type" => @grant_type_jwt_bearer,
@@ -248,7 +261,7 @@ defmodule RotatingSecrets.Source.Vault.Auth.ZitadelPrivateKeyJwt do
         "scope" => "openid"
       })
 
-    req = Req.new(retry: false, receive_timeout: 10_000)
+    req = Req.new([retry: false, receive_timeout: 10_000] ++ extra_req_opts)
 
     case Req.post(req,
            url: "#{zitadel_url}/oauth/v2/token",
