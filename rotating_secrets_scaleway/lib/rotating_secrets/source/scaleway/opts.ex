@@ -1,6 +1,8 @@
 defmodule RotatingSecrets.Source.Scaleway.Opts do
   @moduledoc false
 
+  @unsafe_chars ["\0", "\r", "\n"]
+
   @spec fetch_required_string(keyword(), atom()) :: {:ok, String.t()} | {:error, term()}
   def fetch_required_string(opts, key) do
     case Keyword.fetch(opts, key) do
@@ -21,7 +23,7 @@ defmodule RotatingSecrets.Source.Scaleway.Opts do
   @spec validate_name(String.t()) :: :ok | {:error, term()}
   def validate_name(name) when is_binary(name) and byte_size(name) > 0 do
     cond do
-      String.contains?(name, ["\0", "\r", "\n"]) -> {:error, {:invalid_option, :name}}
+      String.contains?(name, @unsafe_chars) -> {:error, {:invalid_option, :name}}
       name == ".." -> {:error, {:invalid_option, :name}}
       true -> :ok
     end
@@ -68,7 +70,7 @@ defmodule RotatingSecrets.Source.Scaleway.Opts do
   def validate_key(nil), do: :ok
 
   def validate_key(key) when is_binary(key) and byte_size(key) > 0 do
-    if String.contains?(key, ["\0", "\r", "\n"]) do
+    if String.contains?(key, @unsafe_chars) do
       {:error, {:invalid_option, :key}}
     else
       :ok
@@ -80,7 +82,7 @@ defmodule RotatingSecrets.Source.Scaleway.Opts do
   defp validate_segment(seg) do
     cond do
       seg == ".." -> {:error, {:invalid_option, :path}}
-      String.contains?(seg, ["\0", "\r", "\n"]) -> {:error, {:invalid_option, :path}}
+      String.contains?(seg, @unsafe_chars) -> {:error, {:invalid_option, :path}}
       true -> :ok
     end
   end

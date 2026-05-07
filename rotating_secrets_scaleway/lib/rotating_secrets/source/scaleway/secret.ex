@@ -160,15 +160,6 @@ defmodule RotatingSecrets.Source.Scaleway.Secret do
       {:error, :scaleway_server_error} ->
         {:error, :scaleway_server_error, state}
 
-      {:error, reason}
-      when reason in [
-             :scaleway_timeout,
-             :scaleway_connection_refused,
-             :scaleway_tls_error,
-             :scaleway_transport_error
-           ] ->
-        {:error, {:connection_error, reason}, state}
-
       {:error, reason} ->
         {:error, {:connection_error, reason}, state}
     end
@@ -202,15 +193,6 @@ defmodule RotatingSecrets.Source.Scaleway.Secret do
 
       {:error, :scaleway_server_error} ->
         {:error, :scaleway_server_error, state}
-
-      {:error, reason}
-      when reason in [
-             :scaleway_timeout,
-             :scaleway_connection_refused,
-             :scaleway_tls_error,
-             :scaleway_transport_error
-           ] ->
-        {:error, {:connection_error, reason}, state}
 
       {:error, reason} ->
         {:error, {:connection_error, reason}, state}
