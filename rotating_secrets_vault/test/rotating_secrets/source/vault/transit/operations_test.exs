@@ -159,4 +159,136 @@ defmodule RotatingSecrets.Source.Vault.Transit.OperationsTest do
                Operations.rewrap(base_req(), "transit", "test-key", "vault:v1:abc123")
     end
   end
+
+  describe "hmac/4" do
+    test "returns vault:v1:... hmac string on success" do
+      Req.Test.stub(@stub_name, fn conn ->
+        Req.Test.json(conn, %{"data" => %{"hmac" => "vault:v1:abc123=="}})
+      end)
+
+      assert {:ok, "vault:v1:abc123=="} =
+               Operations.hmac(base_req(), "transit", "lead_radar_api_keys", "input-data")
+    end
+
+    test "sends POST to /v1/transit/hmac/key-name with base64-encoded input" do
+      test_pid = self()
+
+      Req.Test.stub(@stub_name, fn conn ->
+        {:ok, body, conn} = Plug.Conn.read_body(conn)
+        decoded = Jason.decode!(body)
+        send(test_pid, {:request, conn.request_path, decoded})
+        Req.Test.json(conn, %{"data" => %{"hmac" => "vault:v1:xyz"}})
+      end)
+
+      Operations.hmac(base_req(), "transit", "lead_radar_api_keys", "hello")
+
+      assert_receive {:request, "/v1/transit/hmac/lead_radar_api_keys", params}
+      assert params["input"] == Base.encode64("hello")
+      assert params["algorithm"] == "sha2-256"
+    end
+
+    test "returns {:error, :vault_unexpected_response} when response missing hmac field" do
+      Req.Test.stub(@stub_name, fn conn ->
+        Req.Test.json(conn, %{"data" => %{}})
+      end)
+
+      assert {:error, :vault_unexpected_response} =
+               Operations.hmac(base_req(), "transit", "lead_radar_api_keys", "input")
+    end
+
+    test "returns {:error, :vault_auth_error} on 403" do
+      Req.Test.stub(@stub_name, fn conn ->
+        Plug.Conn.send_resp(conn, 403, "")
+      end)
+
+      assert {:error, :vault_auth_error} =
+               Operations.hmac(base_req(), "transit", "lead_radar_api_keys", "input")
+    end
+  end
+
+  describe "verify_hmac/5" do
+    test "returns {:ok, true} when hmac is valid" do
+      Req.Test.stub(@stub_name, fn conn ->
+        Req.Test.json(conn, %{"data" => %{"valid" => true}})
+      end)
+
+      assert {:ok, true} =
+               Operations.verify_hmac(
+                 base_req(),
+                 "transit",
+                 "lead_radar_api_keys",
+                 "input-data",
+                 "vault:v1:abc123=="
+               )
+    end
+
+    test "returns {:ok, false} when hmac is invalid" do
+      Req.Test.stub(@stub_name, fn conn ->
+        Req.Test.json(conn, %{"data" => %{"valid" => false}})
+      end)
+
+      assert {:ok, false} =
+               Operations.verify_hmac(
+                 base_req(),
+                 "transit",
+                 "lead_radar_api_keys",
+                 "input-data",
+                 "vault:v1:wronghmac"
+               )
+    end
+
+    test "sends POST to /v1/transit/verify/key-name with base64 input and hmac" do
+      test_pid = self()
+
+      Req.Test.stub(@stub_name, fn conn ->
+        {:ok, body, conn} = Plug.Conn.read_body(conn)
+        decoded = Jason.decode!(body)
+        send(test_pid, {:request, conn.request_path, decoded})
+        Req.Test.json(conn, %{"data" => %{"valid" => true}})
+      end)
+
+      Operations.verify_hmac(
+        base_req(),
+        "transit",
+        "lead_radar_api_keys",
+        "my-input",
+        "vault:v1:sig=="
+      )
+
+      assert_receive {:request, "/v1/transit/verify/lead_radar_api_keys", params}
+      assert params["input"] == Base.encode64("my-input")
+      assert params["hmac"] == "vault:v1:sig=="
+      assert params["algorithm"] == "sha2-256"
+    end
+
+    test "returns {:error, :vault_unexpected_response} when response missing valid field" do
+      Req.Test.stub(@stub_name, fn conn ->
+        Req.Test.json(conn, %{"data" => %{}})
+      end)
+
+      assert {:error, :vault_unexpected_response} =
+               Operations.verify_hmac(
+                 base_req(),
+                 "transit",
+                 "lead_radar_api_keys",
+                 "input",
+                 "vault:v1:hmac"
+               )
+    end
+
+    test "returns {:error, :vault_auth_error} on 403" do
+      Req.Test.stub(@stub_name, fn conn ->
+        Plug.Conn.send_resp(conn, 403, "")
+      end)
+
+      assert {:error, :vault_auth_error} =
+               Operations.verify_hmac(
+                 base_req(),
+                 "transit",
+                 "lead_radar_api_keys",
+                 "input",
+                 "vault:v1:hmac"
+               )
+    end
+  end
 end

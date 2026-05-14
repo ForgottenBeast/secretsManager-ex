@@ -95,4 +95,55 @@ defmodule RotatingSecrets.Source.Vault.Transit.Operations do
       {:error, reason} -> {:error, reason}
     end
   end
+
+  @doc """
+  Compute HMAC of `input` using the named transit HMAC key.
+
+  Returns the HMAC string in OpenBao format (`"vault:v1:<base64>"`).
+  The key must be of type `hmac-sha2-256` (created via `bao write transit/keys/<name> type=hmac-sha2-256`).
+
+  ## Parameters
+    * `base_req` — authenticated `Req.Request.t()` built by `HTTP.base_request/1`
+    * `mount` — transit engine mount path (e.g. `"transit"`)
+    * `key_name` — HMAC key name (e.g. `"lead_radar_api_keys"`)
+    * `input` — binary data to HMAC
+  """
+  @spec hmac(base_req(), mount(), key_name(), binary()) ::
+          {:ok, hmac :: String.t()} | {:error, atom()}
+  def hmac(base_req, mount, key_name, input) when is_binary(input) do
+    path = "/v1/#{mount}/hmac/#{key_name}"
+    case HTTP.post(base_req, path, %{"input" => Base.encode64(input), "algorithm" => "sha2-256"}) do
+      {:ok, %{"data" => %{"hmac" => h}}} -> {:ok, h}
+      {:ok, _} -> {:error, :vault_unexpected_response}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
+  Verify that `hmac_string` is the correct HMAC of `input` under the named key.
+
+  Returns `{:ok, true}` if the HMAC is valid, `{:ok, false}` if it does not match.
+
+  ## Parameters
+    * `base_req` — authenticated `Req.Request.t()`
+    * `mount` — transit engine mount path
+    * `key_name` — HMAC key name
+    * `input` — original binary data that was HMACed
+    * `hmac_string` — the HMAC string to verify (e.g. `"vault:v1:..."`)
+  """
+  @spec verify_hmac(base_req(), mount(), key_name(), binary(), String.t()) ::
+          {:ok, valid :: boolean()} | {:error, atom()}
+  def verify_hmac(base_req, mount, key_name, input, hmac_string)
+      when is_binary(input) and is_binary(hmac_string) do
+    path = "/v1/#{mount}/verify/#{key_name}"
+    case HTTP.post(base_req, path, %{
+           "input" => Base.encode64(input),
+           "hmac" => hmac_string,
+           "algorithm" => "sha2-256"
+         }) do
+      {:ok, %{"data" => %{"valid" => valid}}} -> {:ok, valid}
+      {:ok, _} -> {:error, :vault_unexpected_response}
+      {:error, reason} -> {:error, reason}
+    end
+  end
 end
